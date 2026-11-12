@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 (unreleased)
+## 1.0.0
 First public release.
 - Zone skill window: Minimum and Recommended Fishing skill for your zone or subzone, plus your own skill, including pole and lure bonuses.
 - World map info: hover any zone to see its fishing numbers (`/ffu map`).
