@@ -3,6 +3,8 @@
 ## Notes: Fishing skill needed for your zone, one-key fishing, lure and pole/weapon swap buttons.
 ## Author: Erick Ihrig
 ## Version: 1.9.5
+## X-Website: https://github.com/erick-ihrig/ZoneFishingSkill
+## X-License: MIT
 ## SavedVariables: ZoneFishingSkillDB
 
 Data.lua
