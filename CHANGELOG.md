@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.2.1
+- `/ffu reset` now says where the window goes: its default spot, centred near the top of the screen.
+- Double right-click uses a fixed 0.4 s window; the custom timing option was removed.
+
 ## 2.2.0
 - The window now only shows while a fishing pole is equipped, by default. `/ffu pole` switches to always showing it.
 

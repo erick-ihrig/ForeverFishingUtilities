@@ -28,7 +28,6 @@ local DEFAULTS = {
     point = { "TOP", "UIParent", "TOP", 0, -120 },
     spaceOn = true,       -- Space casts and interacts while a pole is equipped (jumps otherwise)
     doubleClick = false,  -- double right-click casts (opt-in)
-    doubleClickSpeed = 0.4,
     sound = false,        -- quiet everything but effects while fishing (opt-in)
     volume = 1,           -- master volume while fishing
 }
@@ -471,6 +470,9 @@ end
 -- Double right-click
 ---------------------------------------------------------------------------
 
+-- Two right-clicks within this many seconds count as a double-click. Close
+-- to the usual system setting, so it feels like any other double-click.
+local DOUBLE_CLICK_TIME = 0.4
 local lastRightClick = 0
 local lastDoubleCast = 0
 
@@ -493,7 +495,7 @@ local function OnRightDown()
     local now = GetTime()
     local gap = now - lastRightClick
     lastRightClick = now
-    if gap < 0.04 or gap > db.doubleClickSpeed then return end
+    if gap < 0.04 or gap > DOUBLE_CLICK_TIME then return end
     if now - lastDoubleCast < 0.5 then return end
     lastRightClick = 0
     if fishingActive then
@@ -943,7 +945,7 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
             db.optInDefaults = true
         end
         db.custom, db.stats, db.showStats, db.statsLineRemoved = nil, nil, nil, nil
-        db.swapKey, db.mapInfo = nil, nil
+        db.swapKey, db.mapInfo, db.doubleClickSpeed = nil, nil, nil
         self:ClearAllPoints()
         local p = db.point
         self:SetPoint(p[1], UIParent, p[3], p[4], p[5])
@@ -1056,21 +1058,14 @@ SlashCmdList.FOREVERFISHINGUTILITIES = function(msg)
         else
             frame:ClearAllPoints()
             frame:SetPoint("TOP", UIParent, "TOP", 0, -120)
-            Say("window moved back to the top.")
+            Say("window moved back to its default spot: centred near the top of the screen.")
         end
     elseif cmd == "space" then
         ToggleSpace()
         Say("Space fishing " .. OnOff(db.spaceOn) .. ".")
     elseif cmd == "dblclick" then
-        local speed = tonumber(a)
-        if speed then
-            db.doubleClickSpeed = math.max(0.1, math.min(0.8, speed))
-            db.doubleClick = true
-            Say("double right-click to cast " .. OnOff(true) .. " (" .. db.doubleClickSpeed .. "s between clicks).")
-        else
-            db.doubleClick = not db.doubleClick
-            Say("double right-click to cast " .. OnOff(db.doubleClick) .. ".")
-        end
+        db.doubleClick = not db.doubleClick
+        Say("double right-click to cast " .. OnOff(db.doubleClick) .. ".")
     elseif cmd == "sound" then
         local vol = tonumber(a)
         if vol then
@@ -1086,9 +1081,9 @@ SlashCmdList.FOREVERFISHINGUTILITIES = function(msg)
         print("  |cffffd100/ffu|r  show or hide the window")
         print("  |cffffd100/ffu pole|r  only show it with a pole equipped (" .. OnOff(db.poleOnly) .. ")")
         print("  |cffffd100/ffu lock|r  lock the window in place (" .. OnOff(db.locked) .. ")")
-        print("  |cffffd100/ffu reset|r  move the window back to the top")
+        print("  |cffffd100/ffu reset|r  move the window back to its default spot (centred near the top of the screen)")
         print("  |cffffd100/ffu space|r  Space casts and clicks the bobber (" .. OnOff(db.spaceOn) .. ")")
-        print("  |cffffd100/ffu dblclick [sec]|r  double right-click to cast (" .. OnOff(db.doubleClick) .. ")")
+        print("  |cffffd100/ffu dblclick|r  double right-click to cast (" .. OnOff(db.doubleClick) .. ")")
         print("  |cffffd100/ffu sound [0-100]|r  quiet all but the splash while fishing (" .. OnOff(db.sound) .. ")")
         print("  Keybinds: Options > Keybindings > AddOns > Forever Fishing Utilities")
         return

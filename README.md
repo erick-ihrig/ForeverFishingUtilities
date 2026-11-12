@@ -26,9 +26,9 @@ A small fishing companion for **World of Warcraft: Forever**. It shows the Fishi
 | `/ffu` | Show or hide the window |
 | `/ffu pole` | Switch between showing the window only with a fishing pole equipped (default) and always showing it |
 | `/ffu lock` | Lock the window in place |
-| `/ffu reset` | Move the window back to the top of the screen |
+| `/ffu reset` | Move the window back to its default spot, centred near the top of the screen |
 | `/ffu space` | Turn Space fishing on or off (same as the fishing icon) |
-| `/ffu dblclick [seconds]` | Turn double right-click casting on or off, or set the click speed |
+| `/ffu dblclick` | Turn double right-click casting on or off |
 | `/ffu sound [0-100]` | Turn fishing sound mode on or off, or set its volume |
 
 Type `/ffu help` to see the commands and whether each option is on.
