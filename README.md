@@ -1,4 +1,4 @@
-# Zone Fishing Skill
+# Forever Fishing Utilities
 
 A small fishing companion for **World of Warcraft: Forever**. It shows the Fishing skill your current zone needs and makes fishing a one-key job.
 
@@ -15,7 +15,7 @@ A small fishing companion for **World of Warcraft: Forever**. It shows the Fishi
 ## Install
 
 1. Download the latest release.
-2. Unzip it into `World of Warcraft\_forever_\Interface\AddOns\`. You should end up with `AddOns\ZoneFishingSkill\ZoneFishingSkill.toc`.
+2. Unzip it into `World of Warcraft\_forever_\Interface\AddOns\`. You should end up with `AddOns\ForeverFishingUtilities\ForeverFishingUtilities.toc`.
 3. Restart the game fully, so the keybinds appear.
 4. If you use **Better Fishing**, disable it. Both addons manage the same keys.
 
@@ -23,18 +23,18 @@ A small fishing companion for **World of Warcraft: Forever**. It shows the Fishi
 
 | Command | What it does |
 |---|---|
-| `/zfs` | Show or hide the window |
-| `/zfs pole` | Only show the window while a fishing pole is equipped |
-| `/zfs lock` / `/zfs reset` | Lock the window, or move it back to the top of the screen |
-| `/zfs space` | Turn Space fishing on or off (same as the fishing icon) |
-| `/zfs sound [0-100]` | Turn fishing sound mode on or off, or set its volume |
-| `/zfs dblclick [seconds]` | Turn double right-click casting on or off, or set the click speed |
-| `/zfs swapkey <KEY>` | Set the pole/weapon swap key, e.g. `/zfs swapkey CTRL-W` |
-| `/zfs keys` | Show which keys are set |
-| `/zfs map` | Turn the world map fishing info on or off |
-| `/zfs set <min> [recommended]` | Enter your own values for the current subzone, e.g. for new Forever zones |
+| `/ffu` | Show or hide the window |
+| `/ffu pole` | Only show the window while a fishing pole is equipped |
+| `/ffu lock` / `/ffu reset` | Lock the window, or move it back to the top of the screen |
+| `/ffu space` | Turn Space fishing on or off (same as the fishing icon) |
+| `/ffu sound [0-100]` | Turn fishing sound mode on or off, or set its volume |
+| `/ffu dblclick [seconds]` | Turn double right-click casting on or off, or set the click speed |
+| `/ffu swapkey <KEY>` | Set the pole/weapon swap key, e.g. `/ffu swapkey CTRL-W` |
+| `/ffu keys` | Show which keys are set |
+| `/ffu map` | Turn the world map fishing info on or off |
+| `/ffu set <min> [recommended]` | Enter your own values for the current subzone, e.g. for new Forever zones |
 
-Keybinds: **Options → Keybindings → AddOns → Zone Fishing Skill** ("Cast and Interact" and "Swap Fishing Pole / Weapons").
+Keybinds: **Options → Keybindings → AddOns → Forever Fishing Utilities** ("Cast and Interact" and "Swap Fishing Pole / Weapons").
 
 ## How it works
 
@@ -47,7 +47,7 @@ Some technical details, for the curious:
 
 ## Data and limitations
 
-- Skill values are the Classic-era zone tables, which WoW Forever guides match so far. Zones new to Forever have no published values yet; use `/zfs set` to add your own.
+- Skill values are the Classic-era zone tables, which WoW Forever guides match so far. Zones new to Forever have no published values yet; use `/ffu set` to add your own.
 - Zone lookups use English zone names, so the addon currently works on **English (enUS) clients** only.
 - The lure list uses the Classic lures. Lures added in Forever aren't included yet.
 

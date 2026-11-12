@@ -1,4 +1,4 @@
--- Zone Fishing Skill: reference data
+-- Forever Fishing Utilities: reference data
 -- Each entry is { min = skill needed to cast, full = skill where no fish get away }.
 -- Values are the Classic-era tables (Warcraft Tavern, Legacy WoW, Blizzard Watch),
 -- which WoW Forever guides match so far. Keys are the enUS names returned by

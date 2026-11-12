@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.0
+- Renamed to **Forever Fishing Utilities**. The addon folder is now `ForeverFishingUtilities`.
+- The slash command is now `/ffu` (was `/zfs`).
+- Settings and keybinds start fresh, because WoW stores them under the old name.
+
 ## 1.9.5
 - Added `/zfs swapkey <KEY>` to set the swap key without the Key Bindings screen.
 - Added `/zfs keys` to show which keys are set.

@@ -1,4 +1,4 @@
--- Zone Fishing Skill
+-- Forever Fishing Utilities
 -- One small window for where you stand:
 --   orange  skill needed to cast
 --   yellow  skill where no fish get away
@@ -11,7 +11,7 @@
 -- It also counts your catches and skill-ups per zone in 10-point skill bands,
 -- so you can compare an over-leveled zone with an on-level one at the same skill.
 -- It also does one-key fishing, so Better Fishing isn't needed:
---   * a "Cast and Interact" key (Key Bindings > Zone Fishing Skill), and/or Space
+--   * a "Cast and Interact" key (Key Bindings > Forever Fishing Utilities), and/or Space
 --     via the small fishing button in the top right: casts Fishing, then clicks
 --     the bobber while the cast is up. Only active while a pole is equipped.
 --   * double right-click to cast
@@ -209,7 +209,7 @@ end
 -- Window
 ---------------------------------------------------------------------------
 
-local frame = CreateFrame("Frame", "ZoneFishingSkillFrame", UIParent, "BackdropTemplate")
+local frame = CreateFrame("Frame", "ForeverFishingUtilitiesFrame", UIParent, "BackdropTemplate")
 frame:SetSize(220, 40)
 frame:SetFrameStrata("MEDIUM")
 frame:SetClampedToScreen(true)
@@ -330,7 +330,7 @@ local function Refresh()
         end
         line2:SetText(Thresholds(entry) .. note)
     else
-        line2:SetText(COLOR.grey .. "No data here. /zfs set <min>|r")
+        line2:SetText(COLOR.grey .. "No data here. /ffu set <min>|r")
     end
 
     lineSkill:SetText(SkillText())
@@ -411,13 +411,13 @@ end
 --     back when it ends.
 
 local function Say(msg)
-    print("|cff40c0ffZone Fishing Skill:|r " .. msg)
+    print("|cff40c0ffForever Fishing Utilities:|r " .. msg)
 end
 
-BINDING_HEADER_ZONEFISHINGSKILL = "Zone Fishing Skill"
-BINDING_NAME_ZONEFISHINGSKILL_CAST = "Cast and Interact (pole equipped)"
+BINDING_HEADER_FOREVERFISHINGUTILITIES = "Forever Fishing Utilities"
+BINDING_NAME_FOREVERFISHINGUTILITIES_CAST = "Cast and Interact (pole equipped)"
 
-local CAST_BUTTON_NAME = "ZoneFishingSkillCastButton"
+local CAST_BUTTON_NAME = "ForeverFishingUtilitiesCastButton"
 local castButton = CreateFrame("Button", CAST_BUTTON_NAME, UIParent, "SecureActionButtonTemplate")
 castButton:RegisterForClicks("AnyDown", "AnyUp")
 castButton:SetAttribute("type", "spell")
@@ -446,7 +446,7 @@ end)
 local function FishingKeys()
     local keys = {}
     if db.spaceOn then keys[#keys + 1] = "SPACE" end
-    for _, key in ipairs({ GetBindingKey("ZONEFISHINGSKILL_CAST") }) do
+    for _, key in ipairs({ GetBindingKey("FOREVERFISHINGUTILITIES_CAST") }) do
         if key ~= "SPACE" then keys[#keys + 1] = key end
     end
     return keys
@@ -470,7 +470,7 @@ local function UpdateKeys()
 end
 
 -- The binding itself only runs when the overrides aren't in place.
-function ZoneFishingSkill_CastKey()
+function ForeverFishingUtilities_CastKey()
     if not HasPoleEquipped() then
         Say("equip a fishing pole to use this key.")
     elseif InCombatLockdown() then
@@ -750,7 +750,7 @@ local function BestLure()
     end
 end
 
-local lureButton = CreateFrame("Button", "ZoneFishingSkillLureButton", frame, "SecureActionButtonTemplate")
+local lureButton = CreateFrame("Button", "ForeverFishingUtilitiesLureButton", frame, "SecureActionButtonTemplate")
 lureButton:SetSize(16, 16)
 lureButton:SetPoint("BOTTOMRIGHT", -6, 4)
 lureButton:RegisterForClicks("AnyUp", "AnyDown")
@@ -861,7 +861,7 @@ local function FindPoleInBags()
 end
 
 local swapHeader = CreateFrame("Frame", nil, UIParent, "SecureHandlerBaseTemplate")
-local swapButton = CreateFrame("Button", "ZoneFishingSkillSwapButton", frame, "SecureActionButtonTemplate")
+local swapButton = CreateFrame("Button", "ForeverFishingUtilitiesSwapButton", frame, "SecureActionButtonTemplate")
 swapButton:SetSize(16, 16)
 swapButton:SetPoint("BOTTOMRIGHT", -26, 4)
 swapButton:RegisterForClicks("AnyUp", "AnyDown")
@@ -884,7 +884,7 @@ SecureHandlerWrapScript(swapButton, "OnClick", swapHeader, [[
 -- Keybind: a normal entry in Key Bindings (so it's listed reliably). The key it
 -- gets is pointed at the swap button with an override binding, which stays in
 -- place through combat, so the key swaps even mid-fight.
-BINDING_NAME_ZONEFISHINGSKILL_SWAP = "Swap Fishing Pole / Weapons"
+BINDING_NAME_FOREVERFISHINGUTILITIES_SWAP = "Swap Fishing Pole / Weapons"
 local swapKeyOwner = CreateFrame("Frame")
 local swapKeysPending = false
 
@@ -895,18 +895,18 @@ local function UpdateSwapKeys()
     end
     swapKeysPending = false
     ClearOverrideBindings(swapKeyOwner)
-    local keys = { GetBindingKey("ZONEFISHINGSKILL_SWAP") }
-    -- A key set with /zfs swapkey works even if the Key Bindings screen
+    local keys = { GetBindingKey("FOREVERFISHINGUTILITIES_SWAP") }
+    -- A key set with /ffu swapkey works even if the Key Bindings screen
     -- doesn't list this addon's entries.
     if db and db.swapKey then keys[#keys + 1] = db.swapKey end
     for _, key in ipairs(keys) do
-        SetOverrideBindingClick(swapKeyOwner, false, key, "ZoneFishingSkillSwapButton")
+        SetOverrideBindingClick(swapKeyOwner, false, key, "ForeverFishingUtilitiesSwapButton")
     end
 end
 
 -- Only runs if the override isn't in place yet (e.g. bound during combat).
-function ZoneFishingSkill_SwapKey()
-    print("|cff40c0ffZone Fishing Skill:|r the swap key will work as soon as combat ends.")
+function ForeverFishingUtilities_SwapKey()
+    print("|cff40c0ffForever Fishing Utilities:|r the swap key will work as soon as combat ends.")
 end
 
 local swapPending = false
@@ -989,7 +989,7 @@ swapButton:SetScript("OnEnter", function(self)
             GameTooltip:AddLine("No fishing pole in your bags.", 0.8, 0.8, 0.8, true)
         end
     end
-    GameTooltip:AddLine("Works in combat. Keybind: Key Bindings > Zone Fishing Skill.", 0.6, 0.6, 0.6, true)
+    GameTooltip:AddLine("Works in combat. Keybind: Key Bindings > Forever Fishing Utilities.", 0.6, 0.6, 0.6, true)
     GameTooltip:Show()
 end)
 swapButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1020,8 +1020,8 @@ frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", "player")
 frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
     if event == "ADDON_LOADED" then
         if arg1 ~= ADDON then return end
-        ZoneFishingSkillDB = ZoneFishingSkillDB or {}
-        db = ZoneFishingSkillDB
+        ForeverFishingUtilitiesDB = ForeverFishingUtilitiesDB or {}
+        db = ForeverFishingUtilitiesDB
         for k, v in pairs(DEFAULTS) do
             if db[k] == nil then
                 db[k] = type(v) == "table" and CopyTable(v) or v
@@ -1150,12 +1150,12 @@ local function CurrentKey()
     return GetRealZoneText() or ""
 end
 
-SLASH_ZONEFISHINGSKILL1 = "/zfs"
-SlashCmdList.ZONEFISHINGSKILL = function(msg)
+SLASH_FOREVERFISHINGUTILITIES1 = "/ffu"
+SlashCmdList.FOREVERFISHINGUTILITIES = function(msg)
     local cmd, a, b, c = strsplit(" ", strtrim(msg or ""):lower())
     if cmd == "" then
         db.shown = not db.shown
-        Say(db.shown and "shown." or "hidden. /zfs to show again.")
+        Say(db.shown and "shown." or "hidden. /ffu to show again.")
     elseif cmd == "pole" then
         db.poleOnly = not db.poleOnly
         Say(db.poleOnly and "only shown with a fishing pole equipped." or "always shown.")
@@ -1170,7 +1170,7 @@ SlashCmdList.ZONEFISHINGSKILL = function(msg)
     elseif cmd == "set" then
         local min = tonumber(a)
         if not min then
-            Say("usage: /zfs set <min> [noGetaways] [noSkillGain]  (current subzone, or zone if none)")
+            Say("usage: /ffu set <min> [noGetaways] [noSkillGain]  (current subzone, or zone if none)")
             return
         end
         local full = tonumber(b) or (min + 95)
@@ -1180,7 +1180,7 @@ SlashCmdList.ZONEFISHINGSKILL = function(msg)
     elseif cmd == "setzone" then
         local min = tonumber(a)
         if not min then
-            Say("usage: /zfs setzone <min> [noGetaways] [noSkillGain]  (whole zone)")
+            Say("usage: /ffu setzone <min> [noGetaways] [noSkillGain]  (whole zone)")
             return
         end
         local key = GetRealZoneText() or ""
@@ -1213,7 +1213,7 @@ SlashCmdList.ZONEFISHINGSKILL = function(msg)
             db.stats = {}
             Say("skill-up data cleared.")
         else
-            Say("this clears every logged catch. Type /zfs resetstats yes to confirm.")
+            Say("this clears every logged catch. Type /ffu resetstats yes to confirm.")
         end
     elseif cmd == "space" then
         ToggleSpace()
@@ -1257,11 +1257,11 @@ SlashCmdList.ZONEFISHINGSKILL = function(msg)
         local found = 0
         for i = 1, (GetNumBindings and GetNumBindings() or 0) do
             local c = GetBinding(i)
-            if c == "ZONEFISHINGSKILL_CAST" or c == "ZONEFISHINGSKILL_SWAP" then found = found + 1 end
+            if c == "FOREVERFISHINGUTILITIES_CAST" or c == "FOREVERFISHINGUTILITIES_SWAP" then found = found + 1 end
         end
         Say("keybind entries loaded: " .. found .. " of 2" .. (found < 2 and " (restart the game fully)" or "") .. ".")
-        Say("Cast and Interact: " .. list("ZONEFISHINGSKILL_CAST"))
-        Say("Swap Pole / Weapons: " .. list("ZONEFISHINGSKILL_SWAP") .. (db.swapKey and (", " .. db.swapKey .. " (via /zfs swapkey)") or ""))
+        Say("Cast and Interact: " .. list("FOREVERFISHINGUTILITIES_CAST"))
+        Say("Swap Pole / Weapons: " .. list("FOREVERFISHINGUTILITIES_SWAP") .. (db.swapKey and (", " .. db.swapKey .. " (via /ffu swapkey)") or ""))
         return
     elseif cmd == "map" then
         db.mapInfo = not db.mapInfo
@@ -1272,23 +1272,23 @@ SlashCmdList.ZONEFISHINGSKILL = function(msg)
         elseif db.custom[zone] then db.custom[zone] = nil; Say("cleared your value for " .. zone .. ".")
         else Say("no value of yours to clear here.") end
     else
-        Say("/zfs  show or hide")
-        Say("/zfs pole  only show with a fishing pole equipped")
-        Say("/zfs lock  lock or unlock the window")
-        Say("/zfs reset  move the window back to the top")
-        Say("/zfs set <min> [noGetaways] [noSkillGain]  your own values for this subzone")
-        Say("/zfs setzone <min> [noGetaways] [noSkillGain]  your own values for this zone")
-        Say("/zfs clear  remove your value here")
-        Say("/zfs space  turn Space fishing on/off: with a pole on, Space casts and clicks the bobber (same as the button)")
-        Say("/zfs dblclick [seconds]  double right-click to cast on/off, or set the click speed")
-        Say("/zfs sound [volume]  fishing sound mode on/off, or set volume (0-100)")
-        Say("/zfs swapkey <KEY>  set the pole/weapon swap key without the Key Bindings screen (e.g. /zfs swapkey CTRL-W); /zfs swapkey clear to remove")
-        Say("/zfs keys  show which keys are set and whether the keybind entries loaded")
-        Say("/zfs map  show or hide fishing numbers when hovering zones on the world map")
-        Say("/zfs stats [skill]  skill-up rates per zone at your skill band (or the one given)")
-        Say("/zfs showstats  show or hide the skill-up line")
-        Say("/zfs resetstats yes  clear all logged catches")
-        Say("A dedicated key: Key Bindings > Zone Fishing Skill > Cast and Interact.")
+        Say("/ffu  show or hide")
+        Say("/ffu pole  only show with a fishing pole equipped")
+        Say("/ffu lock  lock or unlock the window")
+        Say("/ffu reset  move the window back to the top")
+        Say("/ffu set <min> [noGetaways] [noSkillGain]  your own values for this subzone")
+        Say("/ffu setzone <min> [noGetaways] [noSkillGain]  your own values for this zone")
+        Say("/ffu clear  remove your value here")
+        Say("/ffu space  turn Space fishing on/off: with a pole on, Space casts and clicks the bobber (same as the button)")
+        Say("/ffu dblclick [seconds]  double right-click to cast on/off, or set the click speed")
+        Say("/ffu sound [volume]  fishing sound mode on/off, or set volume (0-100)")
+        Say("/ffu swapkey <KEY>  set the pole/weapon swap key without the Key Bindings screen (e.g. /ffu swapkey CTRL-W); /ffu swapkey clear to remove")
+        Say("/ffu keys  show which keys are set and whether the keybind entries loaded")
+        Say("/ffu map  show or hide fishing numbers when hovering zones on the world map")
+        Say("/ffu stats [skill]  skill-up rates per zone at your skill band (or the one given)")
+        Say("/ffu showstats  show or hide the skill-up line")
+        Say("/ffu resetstats yes  clear all logged catches")
+        Say("A dedicated key: Key Bindings > Forever Fishing Utilities > Cast and Interact.")
     end
     Refresh()
 end

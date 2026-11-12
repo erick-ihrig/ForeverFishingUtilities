@@ -1,8 +1,8 @@
 <Bindings>
-	<Binding name="ZONEFISHINGSKILL_CAST" header="ZONEFISHINGSKILL" category="ADDONS">
-		ZoneFishingSkill_CastKey()
+	<Binding name="FOREVERFISHINGUTILITIES_CAST" header="FOREVERFISHINGUTILITIES" category="ADDONS">
+		ForeverFishingUtilities_CastKey()
 	</Binding>
-	<Binding name="ZONEFISHINGSKILL_SWAP" category="ADDONS">
-		ZoneFishingSkill_SwapKey()
+	<Binding name="FOREVERFISHINGUTILITIES_SWAP" category="ADDONS">
+		ForeverFishingUtilities_SwapKey()
 	</Binding>
 </Bindings>
