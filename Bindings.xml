@@ -1,0 +1,8 @@
+<Bindings>
+	<Binding name="ZONEFISHINGSKILL_CAST" header="ZONEFISHINGSKILL" category="ADDONS">
+		ZoneFishingSkill_CastKey()
+	</Binding>
+	<Binding name="ZONEFISHINGSKILL_SWAP" category="ADDONS">
+		ZoneFishingSkill_SwapKey()
+	</Binding>
+</Bindings>

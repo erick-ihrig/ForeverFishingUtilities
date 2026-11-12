@@ -1,0 +1,9 @@
+## Interface: 16001
+## Title: Zone Fishing Skill
+## Notes: Fishing skill needed for your zone, one-key fishing, lure and pole/weapon swap buttons.
+## Author: Erick Ihrig
+## Version: 1.9.5
+## SavedVariables: ZoneFishingSkillDB
+
+Data.lua
+ZoneFishingSkill.lua
