@@ -2,7 +2,7 @@
 ## Title: Forever Fishing Utilities
 ## Notes: Fishing skill needed for your zone, one-key fishing, lure and pole/weapon swap buttons.
 ## Author: Erick Ihrig
-## Version: 2.1.0
+## Version: 2.2.0
 ## X-Website: https://github.com/erick-ihrig/ForeverFishingUtilities
 ## X-License: MIT
 ## SavedVariables: ForeverFishingUtilitiesDB

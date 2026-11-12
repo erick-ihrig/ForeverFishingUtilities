@@ -23,7 +23,7 @@ local COLOR = {
 
 local DEFAULTS = {
     shown = true,
-    poleOnly = false,
+    poleOnly = true,      -- only show the window with a fishing pole equipped
     locked = false,
     point = { "TOP", "UIParent", "TOP", 0, -120 },
     spaceOn = true,       -- Space casts and interacts while a pole is equipped (jumps otherwise)
@@ -932,6 +932,11 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
         end
         -- 2.1: double right-click and sound mode became opt-in; switch them
         -- off once for existing setups, and drop data from removed features.
+        -- 2.2: the window only shows with a pole equipped by default.
+        if not db.poleOnlyDefault then
+            db.poleOnly = true
+            db.poleOnlyDefault = true
+        end
         if not db.optInDefaults then
             db.doubleClick = false
             db.sound = false

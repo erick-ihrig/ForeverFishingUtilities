@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.2.0
+- The window now only shows while a fishing pole is equipped, by default. `/ffu pole` switches to always showing it.
+
 ## 2.1.0
 - World map: hovering **any** zone now shows its fishing numbers in a small tooltip (previously only your current zone worked).
 - Double right-click casting and fishing sound mode are now **off by default**. Turn them on with `/ffu dblclick` and `/ffu sound`.

@@ -24,7 +24,7 @@ A small fishing companion for **World of Warcraft: Forever**. It shows the Fishi
 | Command | What it does |
 |---|---|
 | `/ffu` | Show or hide the window |
-| `/ffu pole` | Only show the window while a fishing pole is equipped |
+| `/ffu pole` | Switch between showing the window only with a fishing pole equipped (default) and always showing it |
 | `/ffu lock` | Lock the window in place |
 | `/ffu reset` | Move the window back to the top of the screen |
 | `/ffu space` | Turn Space fishing on or off (same as the fishing icon) |
