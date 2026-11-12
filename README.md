@@ -29,6 +29,7 @@ A small fishing companion for **World of Warcraft: Forever**. It shows the Fishi
 | `/ffu reset` | Move the window back to its default spot, centred near the top of the screen |
 | `/ffu space` | Turn Space fishing on or off (same as the fishing icon) |
 | `/ffu dblclick` | Turn double right-click casting on or off |
+| `/ffu map` | Turn the world map fishing info on or off (on by default) |
 | `/ffu sound [0-100]` | Turn fishing sound mode on or off, or set its volume |
 
 Type `/ffu help` to see the commands and whether each option is on.

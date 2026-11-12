@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.3.0
+- New `/ffu map` to turn the world map fishing info on or off (on by default).
+
 ## 2.2.1
 - `/ffu reset` now says where the window goes: its default spot, centred near the top of the screen.
 - Double right-click uses a fixed 0.4 s window; the custom timing option was removed.

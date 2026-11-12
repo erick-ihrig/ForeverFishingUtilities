@@ -29,6 +29,7 @@ local DEFAULTS = {
     spaceOn = true,       -- Space casts and interacts while a pole is equipped (jumps otherwise)
     doubleClick = false,  -- double right-click casts (opt-in)
     sound = false,        -- quiet everything but effects while fishing (opt-in)
+    mapTip = true,        -- fishing numbers when hovering zones on the world map
     volume = 1,           -- master volume while fishing
 }
 
@@ -248,7 +249,7 @@ local lastMapZone
 local function UpdateMapTip()
     local map = WorldMapFrame
     local scroll = map and map.ScrollContainer
-    if not (map and map:IsShown() and scroll and scroll:IsMouseOver()) then
+    if not (db and db.mapTip and map and map:IsShown() and scroll and scroll:IsMouseOver()) then
         if mapTip:IsShown() then mapTip:Hide() end
         lastMapZone = nil
         return
@@ -1066,6 +1067,10 @@ SlashCmdList.FOREVERFISHINGUTILITIES = function(msg)
     elseif cmd == "dblclick" then
         db.doubleClick = not db.doubleClick
         Say("double right-click to cast " .. OnOff(db.doubleClick) .. ".")
+    elseif cmd == "map" then
+        db.mapTip = not db.mapTip
+        if not db.mapTip then mapTip:Hide() end
+        Say("world map fishing info " .. OnOff(db.mapTip) .. ".")
     elseif cmd == "sound" then
         local vol = tonumber(a)
         if vol then
@@ -1084,6 +1089,7 @@ SlashCmdList.FOREVERFISHINGUTILITIES = function(msg)
         print("  |cffffd100/ffu reset|r  move the window back to its default spot (centred near the top of the screen)")
         print("  |cffffd100/ffu space|r  Space casts and clicks the bobber (" .. OnOff(db.spaceOn) .. ")")
         print("  |cffffd100/ffu dblclick|r  double right-click to cast (" .. OnOff(db.doubleClick) .. ")")
+        print("  |cffffd100/ffu map|r  fishing info when hovering zones on the world map (" .. OnOff(db.mapTip) .. ")")
         print("  |cffffd100/ffu sound [0-100]|r  quiet all but the splash while fishing (" .. OnOff(db.sound) .. ")")
         print("  Keybinds: Options > Keybindings > AddOns > Forever Fishing Utilities")
         return
