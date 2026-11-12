@@ -1,0 +1,12 @@
+# Packaging instructions for the BigWigs packager (used by the release workflow).
+package-as: ForeverFishingUtilities
+
+# Shown on CurseForge as the file's changelog.
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+
+# Files that belong in the repo but not in the addon zip players download.
+ignore:
+  - README.md
+  - LICENSE
