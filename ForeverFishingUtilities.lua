@@ -1,21 +1,11 @@
 -- Forever Fishing Utilities
--- One small window for where you stand:
---   orange  skill needed to cast
---   yellow  skill where no fish get away
---   grey    skill where you stop gaining points (only if you set one; fishing
---           has no zone-based cap by default)
--- Two buttons in the bottom-right corner: swap between your fishing pole and the
--- weapons you had on before it, and put the best lure in your bags on the pole.
--- A third line shows your effective Fishing skill. Hovering a zone on the world
--- map adds its fishing numbers under the zone name.
--- It also counts your catches and skill-ups per zone in 10-point skill bands,
--- so you can compare an over-leveled zone with an on-level one at the same skill.
--- It also does one-key fishing, so Better Fishing isn't needed:
---   * a "Cast and Interact" key (Key Bindings > Forever Fishing Utilities), and/or Space
---     via the small fishing button in the top right: casts Fishing, then clicks
---     the bobber while the cast is up. Only active while a pole is equipped.
---   * double right-click to cast
---   * while fishing: music, ambience, dialog and pet sounds off, effects loud
+-- A small window for where you stand: the Fishing skill needed to cast here
+-- (Minimum, orange), the skill where no fish get away (Recommended, yellow),
+-- and your own skill. Buttons: Space fishing and sound mode (top right),
+-- pole/weapon swap and best lure (bottom right).
+-- Also: one-key fishing (Space or a keybind casts, then clicks the bobber),
+-- optional double right-click casting, optional fishing sound mode, and
+-- fishing numbers when hovering zones on the world map.
 
 local ADDON, ns = ...
 
@@ -36,18 +26,12 @@ local DEFAULTS = {
     poleOnly = false,
     locked = false,
     point = { "TOP", "UIParent", "TOP", 0, -120 },
-    custom = {}, -- user-set values: [name] = { min = n, full = n, grey = n }
-    stats = {},  -- [name][band] = { c = catches, s = skill-ups }
-    showStats = false,
     spaceOn = true,       -- Space casts and interacts while a pole is equipped (jumps otherwise)
-    doubleClick = true,   -- double right-click casts
+    doubleClick = false,  -- double right-click casts (opt-in)
     doubleClickSpeed = 0.4,
-    mapInfo = true,       -- fishing numbers on world map zone labels
-    sound = true,         -- quiet everything but effects while fishing
+    sound = false,        -- quiet everything but effects while fishing (opt-in)
     volume = 1,           -- master volume while fishing
 }
-
-local MIN_SAMPLE = 20 -- below this many catches, rates are marked as rough
 
 local db
 
@@ -99,68 +83,15 @@ local function HasPoleEquipped()
 end
 
 -- Finds the data for where you stand. Subzone first, then zone.
--- Returns entry, the name it matched, and whether it's a user-set value.
+-- Returns the entry and the name it matched.
 local function Lookup()
     local zone = GetRealZoneText() or ""
     local sub = GetSubZoneText() or ""
-    if sub ~= "" then
-        if db.custom[sub] then return db.custom[sub], sub, true end
-        if ns.SUBZONES[sub] then return ns.SUBZONES[sub], sub, false end
-    end
-    if db.custom[zone] then return db.custom[zone], zone, true end
-    if ns.ZONES[zone] then return ns.ZONES[zone], zone, false end
-    return nil, zone, false
+    if sub ~= "" and ns.SUBZONES[sub] then return ns.SUBZONES[sub], sub end
+    return ns.ZONES[zone], zone
 end
 
----------------------------------------------------------------------------
--- Skill-up tracking
----------------------------------------------------------------------------
-
-local function Band(rank)
-    return math.floor(rank / 10) * 10
-end
-
-local function Cell(key, band)
-    db.stats[key] = db.stats[key] or {}
-    local cell = db.stats[key][band]
-    if not cell then
-        cell = { c = 0, s = 0 }
-        db.stats[key][band] = cell
-    end
-    return cell
-end
-
--- "48% (21)": the share of catches that gave a skill-up, and how many catches
--- that's based on. White once there are enough catches to trust, grey before.
-local function Rate(c, s, long)
-    if c == 0 then return "|cff9d9d9dno data yet|r" end
-    local pct = math.floor(s / c * 100 + 0.5)
-    local n = long and (c .. (c == 1 and " catch" or " catches")) or tostring(c)
-    local color = c < MIN_SAMPLE and "|cff9d9d9d" or "|cffffffff"
-    return color .. pct .. "% (" .. n .. ")|r"
-end
-
--- Totals for one band: this key, and every other key added together.
-local function BandTotals(key, band)
-    local hc, hs, oc, os = 0, 0, 0, 0
-    for k, bands in pairs(db.stats) do
-        local cell = bands[band]
-        if cell then
-            if k == key then
-                hc, hs = hc + cell.c, hs + cell.s
-            else
-                oc, os = oc + cell.c, os + cell.s
-            end
-        end
-    end
-    return hc, hs, oc, os
-end
-
-local lastRank       -- base rank last seen
-local pending        -- the most recent catch, waiting to see if a skill-up follows
-local lastCatchAt = 0
 local fishingActive = false
-local fishingStoppedAt = 0
 
 local function IsFishingSpell(spellID)
     if not spellID then return false end
@@ -171,38 +102,6 @@ local function IsFishingSpell(spellID)
         name = GetSpellInfo(spellID)
     end
     return name ~= nil and name == FishingName()
-end
-
-local function RecordCatch()
-    local rank, _, maxRank = GetFishingSkill()
-    if not rank then return end
-    local _, key = Lookup()
-
-    -- The skill-up landed before the loot window opened: count it with this catch.
-    if lastRank and rank > lastRank then
-        local cell = Cell(key, Band(lastRank))
-        cell.c, cell.s = cell.c + 1, cell.s + 1
-        lastRank, pending = rank, nil
-        return
-    end
-
-    -- At your rank's cap no skill-up is possible, so the catch says nothing.
-    if maxRank and rank >= maxRank then return end
-
-    local cell = Cell(key, Band(rank))
-    cell.c = cell.c + 1
-    lastRank = rank
-    pending = { cell = cell, at = GetTime() }
-end
-
-local function CheckSkillUp()
-    local rank = GetFishingSkill()
-    if not rank then return end
-    if lastRank and rank > lastRank and pending and GetTime() - pending.at < 10 then
-        pending.cell.s = pending.cell.s + 1
-        pending = nil
-    end
-    lastRank = rank
 end
 
 ---------------------------------------------------------------------------
@@ -251,10 +150,6 @@ lineSkill:SetPoint("TOPLEFT", line2, "BOTTOMLEFT", 0, -3)
 lineSkill:SetJustifyH("LEFT")
 lineSkill:SetWordWrap(false)
 
-local line3 = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-line3:SetPoint("TOPLEFT", lineSkill, "BOTTOMLEFT", 0, -3)
-line3:SetJustifyH("LEFT")
-line3:SetWordWrap(false)
 line2:SetWordWrap(false)
 
 -- Sizes the window to fit its lines.
@@ -265,22 +160,6 @@ local function Fit(lines)
     end
     frame:SetWidth(w)
     frame:SetHeight(17 + 14 * #lines) -- a little extra so the corner buttons clear line 2
-end
-
-local function StatsText(key)
-    local rank, _, maxRank = GetFishingSkill()
-    if not rank then return nil end
-    if maxRank and rank >= maxRank then
-        return COLOR.grey .. "At your rank's cap (" .. maxRank .. "): train to keep gaining|r"
-    end
-    local band = Band(rank)
-    local hc, hs, oc, os = BandTotals(key, band)
-    if hc == 0 and oc == 0 then return nil end
-    local label = "|cffffd100Skill-up chance|r"
-    if oc == 0 then
-        return label .. " here: " .. Rate(hc, hs, true) .. COLOR.grey .. "  ·  elsewhere: no data yet|r"
-    end
-    return label .. ": here " .. Rate(hc, hs) .. COLOR.grey .. "  ·  |relsewhere " .. Rate(oc, os)
 end
 
 local function SkillText()
@@ -295,12 +174,10 @@ local function SkillText()
     return text
 end
 
--- "55   150" in orange and yellow, plus grey if you set one.
+-- "Minimum: 55   Recommended: 150" in orange and yellow.
 local function Thresholds(entry)
-    local text = COLOR.orange .. "Minimum: " .. entry.min .. "|r   " ..
+    return COLOR.orange .. "Minimum: " .. entry.min .. "|r   " ..
         COLOR.yellow .. "Recommended: " .. entry.full .. "|r"
-    if entry.grey then text = text .. "   " .. COLOR.grey .. "No skill-ups: " .. entry.grey .. "|r" end
-    return text
 end
 
 local function Refresh()
@@ -315,85 +192,111 @@ local function Refresh()
 
     local zone = GetRealZoneText() or ""
     local sub = GetSubZoneText() or ""
-    local entry, matched, isCustom = Lookup()
+    local entry, matched = Lookup()
 
     local place = zone
     if sub ~= "" and sub ~= zone then place = zone .. " - " .. sub end
     line1:SetText(place)
 
     if entry then
-        local note = ""
-        if isCustom then
-            note = COLOR.grey .. "  (yours)|r"
-        elseif matched == sub and sub ~= "" then
-            note = COLOR.grey .. "  (subzone)|r"
-        end
+        local note = (matched == sub and sub ~= "") and (COLOR.grey .. "  (subzone)|r") or ""
         line2:SetText(Thresholds(entry) .. note)
     else
-        line2:SetText(COLOR.grey .. "No data here. /ffu set <min>|r")
+        line2:SetText(COLOR.grey .. "No fishing data for this zone yet|r")
     end
 
     lineSkill:SetText(SkillText())
 
-    local stats = db.showStats and StatsText(matched) or nil
-    if stats then
-        line3:SetText(stats)
-        line3:Show()
-    else
-        line3:SetText("")
-        line3:Hide()
-    end
-
     if not locked then
-        Fit(stats and { line1, line2, lineSkill, line3 } or { line1, line2, lineSkill })
+        Fit({ line1, line2, lineSkill })
         frame:Show()
     end
 end
 
 ---------------------------------------------------------------------------
--- World map: fishing numbers under the hovered zone's name
+-- World map: fishing numbers for the zone under the cursor
 ---------------------------------------------------------------------------
+-- While the world map is open, a small tooltip follows the cursor and shows
+-- the hovered zone's fishing numbers (on a continent map), or the shown zone's
+-- numbers (on a zone map). It works out the zone itself from the cursor
+-- position with C_Map.GetMapInfoAtPosition, so it doesn't depend on how the
+-- map draws its own labels.
 
-local function MapText(name)
-    if not db or not db.mapInfo or not name then return nil end
-    local entry = db.custom[name] or ns.ZONES[name]
-    local parts = {}
+local mapTip = CreateFrame("GameTooltip", "ForeverFishingUtilitiesMapTip", UIParent, "GameTooltipTemplate")
+mapTip:SetFrameStrata("TOOLTIP")
+
+local function AddZoneLines(name)
+    local entry = ns.ZONES[name]
+    local added = false
     if entry then
-        parts[1] = "Fishing  " .. Thresholds(entry)
+        mapTip:AddLine(COLOR.orange .. "Minimum: " .. entry.min .. "|r   " ..
+            COLOR.yellow .. "Recommended: " .. entry.full .. "|r")
+        added = true
     end
     -- Bodies of water in this zone that need a different skill.
     for subName, parent in pairs(ns.SUBZONE_PARENT) do
-        if parent == name then
-            local subEntry = db.custom[subName] or ns.SUBZONES[subName]
-            if subEntry then
-                parts[#parts + 1] = COLOR.grey .. subName .. "|r  " .. Thresholds(subEntry)
-            end
+        local subEntry = ns.SUBZONES[subName]
+        if parent == name and subEntry then
+            mapTip:AddLine(COLOR.grey .. subName .. ":|r " .. COLOR.orange .. subEntry.min ..
+                "|r / " .. COLOR.yellow .. subEntry.full .. "|r")
+            added = true
         end
     end
-    if #parts == 0 then return nil end
-    return table.concat(parts, "\n")
+    return added
 end
 
+local lastMapZone
+local function UpdateMapTip()
+    local map = WorldMapFrame
+    local scroll = map and map.ScrollContainer
+    if not (map and map:IsShown() and scroll and scroll:IsMouseOver()) then
+        if mapTip:IsShown() then mapTip:Hide() end
+        lastMapZone = nil
+        return
+    end
+    local mapID = map:GetMapID()
+    local x, y = scroll:GetNormalizedCursorPosition()
+    local name
+    if mapID and x and y and C_Map and C_Map.GetMapInfoAtPosition then
+        local info = C_Map.GetMapInfoAtPosition(mapID, x, y)
+        if info and info.mapID ~= mapID then name = info.name end
+    end
+    if not name and mapID and C_Map then
+        -- Not over a child zone: use the zone the map is showing, if it is one.
+        local info = C_Map.GetMapInfo(mapID)
+        name = info and info.name
+    end
+    if not name or not (ns.ZONES[name] or ns.SUBZONE_PARENT[name]) then
+        if mapTip:IsShown() then mapTip:Hide() end
+        lastMapZone = nil
+        return
+    end
+    -- Rebuild only when the zone changes; a cursor-anchored tooltip follows
+    -- the mouse by itself.
+    if name ~= lastMapZone or not mapTip:IsShown() then
+        lastMapZone = name
+        mapTip:SetOwner(UIParent, "ANCHOR_CURSOR_RIGHT", 20, 0)
+        mapTip:AddLine(name .. " fishing", 1, 0.82, 0)
+        AddZoneLines(name)
+        mapTip:Show()
+    end
+end
+
+local mapTicker
 local mapHooked = false
 local function HookWorldMap()
-    if mapHooked or not WorldMapFrame or not WorldMapFrame.dataProviders then return end
-    for provider in pairs(WorldMapFrame.dataProviders) do
-        local label = type(provider) == "table" and provider.Label
-        if label and label.SetLabel then
-            mapHooked = true
-            local busy = false
-            hooksecurefunc(label, "SetLabel", function(self, labelType, name, description, ...)
-                if busy then return end
-                if MAP_AREA_LABEL_TYPE and MAP_AREA_LABEL_TYPE.AREA_NAME
-                    and labelType ~= MAP_AREA_LABEL_TYPE.AREA_NAME then return end
-                local text = MapText(name)
-                if not text then return end
-                busy = true
-                local desc = (description and description ~= "") and (description .. "\n" .. text) or text
-                self:SetLabel(labelType, name, desc, ...)
-                busy = false
-            end)
-        end
+    if mapHooked or not WorldMapFrame then return end
+    mapHooked = true
+    WorldMapFrame:HookScript("OnShow", function()
+        if not mapTicker then mapTicker = C_Timer.NewTicker(0.05, UpdateMapTip) end
+    end)
+    WorldMapFrame:HookScript("OnHide", function()
+        if mapTicker then mapTicker:Cancel(); mapTicker = nil end
+        mapTip:Hide()
+        lastMapZone = nil
+    end)
+    if WorldMapFrame:IsShown() and not mapTicker then
+        mapTicker = C_Timer.NewTicker(0.05, UpdateMapTip)
     end
 end
 
@@ -895,11 +798,7 @@ local function UpdateSwapKeys()
     end
     swapKeysPending = false
     ClearOverrideBindings(swapKeyOwner)
-    local keys = { GetBindingKey("FOREVERFISHINGUTILITIES_SWAP") }
-    -- A key set with /ffu swapkey works even if the Key Bindings screen
-    -- doesn't list this addon's entries.
-    if db and db.swapKey then keys[#keys + 1] = db.swapKey end
-    for _, key in ipairs(keys) do
+    for _, key in ipairs({ GetBindingKey("FOREVERFISHINGUTILITIES_SWAP") }) do
         SetOverrideBindingClick(swapKeyOwner, false, key, "ForeverFishingUtilitiesSwapButton")
     end
 end
@@ -1010,7 +909,6 @@ frame:RegisterEvent("CHAT_MSG_SKILL")
 frame:RegisterEvent("PLAYER_REGEN_DISABLED")
 frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 frame:RegisterEvent("UPDATE_BINDINGS")
-frame:RegisterEvent("LOOT_OPENED")
 frame:RegisterEvent("BAG_UPDATE_DELAYED")
 frame:RegisterEvent("GLOBAL_MOUSE_DOWN")
 frame:RegisterEvent("GLOBAL_MOUSE_UP")
@@ -1032,19 +930,20 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
             db.spaceOn = true
             db.spaceDefaultOn = true
         end
-        -- 1.4.3: the skill-up line is off by default; turn it off once for existing setups.
-        if not db.statsLineRemoved then
-            db.showStats = false
-            db.statsLineRemoved = true
+        -- 2.1: double right-click and sound mode became opt-in; switch them
+        -- off once for existing setups, and drop data from removed features.
+        if not db.optInDefaults then
+            db.doubleClick = false
+            db.sound = false
+            db.optInDefaults = true
         end
+        db.custom, db.stats, db.showStats, db.statsLineRemoved = nil, nil, nil, nil
+        db.swapKey, db.mapInfo = nil, nil
         self:ClearAllPoints()
         local p = db.point
         self:SetPoint(p[1], UIParent, p[3], p[4], p[5])
         -- Lures and their expiry don't fire a reliable event, so check every second.
-        C_Timer.NewTicker(1, function()
-            CheckSkillUp()
-            Refresh()
-        end)
+        C_Timer.NewTicker(1, Refresh)
         self:UnregisterEvent("ADDON_LOADED")
         return
     end
@@ -1059,7 +958,6 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
     elseif event == "UNIT_SPELLCAST_CHANNEL_START" then
         if IsFishingSpell(arg3) then
             fishingActive = true
-            if not lastRank then lastRank = GetFishingSkill() end
             -- Safety net: never leave the camera stuck following the mouse.
             if IsMouselooking and IsMouselooking() and not IsMouseButtonDown("RightButton") then
                 MouselookStop()
@@ -1071,18 +969,8 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
     elseif event == "UNIT_SPELLCAST_CHANNEL_STOP" then
         if fishingActive then
             fishingActive = false
-            fishingStoppedAt = GetTime()
             UpdateKeys()
             RestoreSoon()
-        end
-        return
-    elseif event == "LOOT_OPENED" then
-        local fished = (IsFishingLoot and IsFishingLoot()) or fishingActive
-            or (GetTime() - fishingStoppedAt < 2)
-        if fished and GetTime() - lastCatchAt > 1 then
-            lastCatchAt = GetTime()
-            RecordCatch()
-            Refresh()
         end
         return
     elseif event == "BAG_UPDATE_DELAYED" then
@@ -1090,10 +978,8 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
         UpdateSwap()
         return
     elseif event == "SKILL_LINES_CHANGED" or event == "CHAT_MSG_SKILL" then
-        CheckSkillUp()
         UpdateLure()
     elseif event == "PLAYER_ENTERING_WORLD" then
-        lastRank = GetFishingSkill()
         RestoreSettings() -- left over from a crash, if any
         HookWorldMap()
         if not mapHooked and EventUtil and EventUtil.ContinueOnAddOnLoaded then
@@ -1144,151 +1030,63 @@ end)
 -- Slash commands
 ---------------------------------------------------------------------------
 
-local function CurrentKey()
-    local sub = GetSubZoneText() or ""
-    if sub ~= "" then return sub end
-    return GetRealZoneText() or ""
-end
+local function OnOff(v) return v and "|cff40c040on|r" or "|cff9d9d9doff|r" end
 
 SLASH_FOREVERFISHINGUTILITIES1 = "/ffu"
 SlashCmdList.FOREVERFISHINGUTILITIES = function(msg)
-    local cmd, a, b, c = strsplit(" ", strtrim(msg or ""):lower())
+    local cmd, a = strsplit(" ", strtrim(msg or ""):lower())
     if cmd == "" then
         db.shown = not db.shown
-        Say(db.shown and "shown." or "hidden. /ffu to show again.")
+        Say(db.shown and "window shown." or "window hidden. Type /ffu to show it again.")
     elseif cmd == "pole" then
         db.poleOnly = not db.poleOnly
-        Say(db.poleOnly and "only shown with a fishing pole equipped." or "always shown.")
+        Say(db.poleOnly and "window only shows with a fishing pole equipped." or "window always shown.")
     elseif cmd == "lock" then
         db.locked = not db.locked
-        Say(db.locked and "locked." or "unlocked. Drag to move.")
+        Say(db.locked and "window locked." or "window unlocked. Drag to move it.")
     elseif cmd == "reset" then
         db.point = CopyTable(DEFAULTS.point)
-        frame:ClearAllPoints()
-        frame:SetPoint("TOP", UIParent, "TOP", 0, -120)
-        Say("position reset.")
-    elseif cmd == "set" then
-        local min = tonumber(a)
-        if not min then
-            Say("usage: /ffu set <min> [noGetaways] [noSkillGain]  (current subzone, or zone if none)")
-            return
-        end
-        local full = tonumber(b) or (min + 95)
-        local key = CurrentKey()
-        db.custom[key] = { min = min, full = full, grey = tonumber(c) }
-        Say(key .. " set to " .. min .. " / " .. full .. (c and (" / " .. c) or "") .. ".")
-    elseif cmd == "setzone" then
-        local min = tonumber(a)
-        if not min then
-            Say("usage: /ffu setzone <min> [noGetaways] [noSkillGain]  (whole zone)")
-            return
-        end
-        local key = GetRealZoneText() or ""
-        db.custom[key] = { min = min, full = tonumber(b) or (min + 95), grey = tonumber(c) }
-        Say(key .. " set to " .. min .. " / " .. db.custom[key].full .. (c and (" / " .. c) or "") .. ".")
-    elseif cmd == "stats" then
-        local rank = GetFishingSkill()
-        local band = tonumber(a) and Band(tonumber(a)) or (rank and Band(rank))
-        if not band then Say("Fishing not learned.") return end
-        local rows = {}
-        for k, bands in pairs(db.stats) do
-            local cell = bands[band]
-            if cell and cell.c > 0 then rows[#rows + 1] = { k, cell } end
-        end
-        table.sort(rows, function(x, y) return x[1] < y[1] end)
-        if #rows == 0 then
-            Say("no catches logged at skill " .. band .. "-" .. (band + 9) .. ".")
+        if InCombatLockdown() then
+            Say("the window can't move in combat; it will reset after combat.")
         else
-            Say("skill-up chance per catch at base skill " .. band .. "-" .. (band + 9) .. ":")
-            for _, r in ipairs(rows) do
-                print("   " .. r[1] .. ": " .. Rate(r[2].c, r[2].s, true))
-            end
-        end
-        return
-    elseif cmd == "showstats" then
-        db.showStats = not db.showStats
-        Say(db.showStats and "skill-up line shown." or "skill-up line hidden (still tracking).")
-    elseif cmd == "resetstats" then
-        if a == "yes" then
-            db.stats = {}
-            Say("skill-up data cleared.")
-        else
-            Say("this clears every logged catch. Type /ffu resetstats yes to confirm.")
+            frame:ClearAllPoints()
+            frame:SetPoint("TOP", UIParent, "TOP", 0, -120)
+            Say("window moved back to the top.")
         end
     elseif cmd == "space" then
         ToggleSpace()
+        Say("Space fishing " .. OnOff(db.spaceOn) .. ".")
     elseif cmd == "dblclick" then
         local speed = tonumber(a)
         if speed then
             db.doubleClickSpeed = math.max(0.1, math.min(0.8, speed))
             db.doubleClick = true
-            Say("double right-click on, " .. db.doubleClickSpeed .. "s between clicks.")
+            Say("double right-click to cast " .. OnOff(true) .. " (" .. db.doubleClickSpeed .. "s between clicks).")
         else
             db.doubleClick = not db.doubleClick
-            Say("double right-click to cast " .. (db.doubleClick and "on." or "off."))
+            Say("double right-click to cast " .. OnOff(db.doubleClick) .. ".")
         end
     elseif cmd == "sound" then
         local vol = tonumber(a)
         if vol then
             db.volume = math.max(0, math.min(1, vol > 1 and vol / 100 or vol))
             SetSound(true)
-            Say("fishing sound on, master volume " .. math.floor(db.volume * 100 + 0.5) .. "% while fishing.")
+            Say("fishing sound mode " .. OnOff(true) .. ", volume " .. math.floor(db.volume * 100 + 0.5) .. "%.")
         else
             SetSound(not db.sound)
-            Say("fishing sound " .. (db.sound and "on: music, ambience, dialog and pet sounds off while fishing." or "off: your sound settings are left alone."))
+            Say("fishing sound mode " .. OnOff(db.sound) .. ".")
         end
-    elseif cmd == "swapkey" then
-        -- keep the key's original case, e.g. CTRL-W or F5
-        local raw = strtrim(msg or ""):match("^%S+%s+(%S+)")
-        if not raw or raw:lower() == "clear" or raw:lower() == "none" then
-            db.swapKey = nil
-            Say("swap key cleared.")
-        else
-            db.swapKey = raw:upper()
-            Say("swap key set to " .. db.swapKey .. ". It swaps pole and weapons, in combat too.")
-        end
-        if InCombatLockdown() then Say("it will take effect when combat ends.") end
-        UpdateSwapKeys()
-    elseif cmd == "keys" then
-        local function list(cmdName)
-            local k = { GetBindingKey(cmdName) }
-            return #k > 0 and table.concat(k, ", ") or "none"
-        end
-        local found = 0
-        for i = 1, (GetNumBindings and GetNumBindings() or 0) do
-            local c = GetBinding(i)
-            if c == "FOREVERFISHINGUTILITIES_CAST" or c == "FOREVERFISHINGUTILITIES_SWAP" then found = found + 1 end
-        end
-        Say("keybind entries loaded: " .. found .. " of 2" .. (found < 2 and " (restart the game fully)" or "") .. ".")
-        Say("Cast and Interact: " .. list("FOREVERFISHINGUTILITIES_CAST"))
-        Say("Swap Pole / Weapons: " .. list("FOREVERFISHINGUTILITIES_SWAP") .. (db.swapKey and (", " .. db.swapKey .. " (via /ffu swapkey)") or ""))
-        return
-    elseif cmd == "map" then
-        db.mapInfo = not db.mapInfo
-        Say("fishing numbers on the world map " .. (db.mapInfo and "on." or "off."))
-    elseif cmd == "clear" then
-        local sub, zone = GetSubZoneText() or "", GetRealZoneText() or ""
-        if db.custom[sub] then db.custom[sub] = nil; Say("cleared your value for " .. sub .. ".")
-        elseif db.custom[zone] then db.custom[zone] = nil; Say("cleared your value for " .. zone .. ".")
-        else Say("no value of yours to clear here.") end
     else
-        Say("/ffu  show or hide")
-        Say("/ffu pole  only show with a fishing pole equipped")
-        Say("/ffu lock  lock or unlock the window")
-        Say("/ffu reset  move the window back to the top")
-        Say("/ffu set <min> [noGetaways] [noSkillGain]  your own values for this subzone")
-        Say("/ffu setzone <min> [noGetaways] [noSkillGain]  your own values for this zone")
-        Say("/ffu clear  remove your value here")
-        Say("/ffu space  turn Space fishing on/off: with a pole on, Space casts and clicks the bobber (same as the button)")
-        Say("/ffu dblclick [seconds]  double right-click to cast on/off, or set the click speed")
-        Say("/ffu sound [volume]  fishing sound mode on/off, or set volume (0-100)")
-        Say("/ffu swapkey <KEY>  set the pole/weapon swap key without the Key Bindings screen (e.g. /ffu swapkey CTRL-W); /ffu swapkey clear to remove")
-        Say("/ffu keys  show which keys are set and whether the keybind entries loaded")
-        Say("/ffu map  show or hide fishing numbers when hovering zones on the world map")
-        Say("/ffu stats [skill]  skill-up rates per zone at your skill band (or the one given)")
-        Say("/ffu showstats  show or hide the skill-up line")
-        Say("/ffu resetstats yes  clear all logged catches")
-        Say("A dedicated key: Key Bindings > Forever Fishing Utilities > Cast and Interact.")
+        Say("commands:")
+        print("  |cffffd100/ffu|r  show or hide the window")
+        print("  |cffffd100/ffu pole|r  only show it with a pole equipped (" .. OnOff(db.poleOnly) .. ")")
+        print("  |cffffd100/ffu lock|r  lock the window in place (" .. OnOff(db.locked) .. ")")
+        print("  |cffffd100/ffu reset|r  move the window back to the top")
+        print("  |cffffd100/ffu space|r  Space casts and clicks the bobber (" .. OnOff(db.spaceOn) .. ")")
+        print("  |cffffd100/ffu dblclick [sec]|r  double right-click to cast (" .. OnOff(db.doubleClick) .. ")")
+        print("  |cffffd100/ffu sound [0-100]|r  quiet all but the splash while fishing (" .. OnOff(db.sound) .. ")")
+        print("  Keybinds: Options > Keybindings > AddOns > Forever Fishing Utilities")
+        return
     end
     Refresh()
 end

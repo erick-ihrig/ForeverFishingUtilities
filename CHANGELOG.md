@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.0
+- World map: hovering **any** zone now shows its fishing numbers in a small tooltip (previously only your current zone worked).
+- Double right-click casting and fishing sound mode are now **off by default**. Turn them on with `/ffu dblclick` and `/ffu sound`.
+- Removed skill-up tracking, manual zone values (`set`, `setzone`, `clear`) and the key commands (`swapkey`, `keys`). Use the Keybindings menu for keys.
+- Shorter `/ffu help` that also shows whether each option is on.
+
 ## 2.0.0
 - Renamed to **Forever Fishing Utilities**. The addon folder is now `ForeverFishingUtilities`.
 - The slash command is now `/ffu` (was `/zfs`).
