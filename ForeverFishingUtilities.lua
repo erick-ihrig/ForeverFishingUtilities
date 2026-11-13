@@ -325,6 +325,8 @@ local function DropInfo(itemID)
 end
 
 local flyWaiting = false -- some item names weren't loaded yet
+local dropAsked = {}     -- itemID -> when its name was first asked for
+local DROP_GIVE_UP = 3   -- seconds; an item the server never answers for isn't in this game
 
 local function FillFlyout()
     local drops, where = LookupDrops()
@@ -332,16 +334,28 @@ local function FillFlyout()
     local n = 0
     if drops then
         flyTitle:SetText("Catches: " .. where)
-        for i, drop in ipairs(drops) do
-            local row = FlyRow(i)
-            local name, icon = DropInfo(drop[1])
-            if not name then flyWaiting = true end
-            row.icon:SetTexture(icon or "Interface\\Icons\\INV_Misc_QuestionMark")
-            row.rate:SetText(RateText(drop[2]))
-            row.name:SetText((name or "Loading...") ..
-                (drop[3] and (COLOR.grey .. TAG_TEXT[drop[3]] .. "|r") or ""))
-            row:Show()
-            n = i
+        for _, drop in ipairs(drops) do
+            local id = drop[1]
+            local name, icon = DropInfo(id)
+            local skip = false
+            if name then
+                dropAsked[id] = nil
+            else
+                dropAsked[id] = dropAsked[id] or GetTime()
+                -- Leave out items the server doesn't know (Classic items that
+                -- WoW Forever doesn't have). They come back if a name ever arrives.
+                skip = GetTime() - dropAsked[id] > DROP_GIVE_UP
+                if not skip then flyWaiting = true end
+            end
+            if not skip then
+                n = n + 1
+                local row = FlyRow(n)
+                row.icon:SetTexture(icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+                row.rate:SetText(RateText(drop[2]))
+                row.name:SetText((name or "Loading...") ..
+                    (drop[3] and (COLOR.grey .. TAG_TEXT[drop[3]] .. "|r") or ""))
+                row:Show()
+            end
         end
         flyNote:SetText("Open water, per catch")
     else
