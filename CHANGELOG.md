@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.1
 - Fixed: swapping back to two identical weapons (e.g. two Copper Daggers) now fills the off-hand too. If you swap mid-fight, the off-hand follows as soon as combat ends.
 
 ## 1.0.0
