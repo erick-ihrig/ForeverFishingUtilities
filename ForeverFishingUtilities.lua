@@ -33,10 +33,12 @@ local DEFAULTS = {
     volume = 1,           -- master volume while fishing
     dropTip = true,       -- list of catches when hovering the zone name
     flyout = "smart",     -- where that list opens: "smart", "up" or "down"
+    jumpSwap = true,      -- jumping while moving with the pole out swaps back to weapons
 }
 
 local db
 local RegisterOptions -- defined with the options panel, further down
+local JumpSwap        -- defined with the swap button, further down
 
 ---------------------------------------------------------------------------
 -- Lookups
@@ -438,7 +440,8 @@ local function AddZoneLines(name)
 end
 
 -- True when the game or another addon (Questie, map pins, etc.) is already
--- showing a tooltip, so ours stays out of the way.
+-- showing a tooltip. Unused since the map tooltip moved to the map's corner,
+-- where it no longer overlaps them; kept in case it goes back to the cursor.
 local OTHER_TIPS = { "GameTooltip", "WorldMapTooltip", "WorldMapCompareTooltip1" }
 local function OtherTooltipShown()
     for _, tipName in ipairs(OTHER_TIPS) do
@@ -453,8 +456,7 @@ local mapWaiting = false -- item names in the map tooltip still loading
 local function UpdateMapTip()
     local map = WorldMapFrame
     local scroll = map and map.ScrollContainer
-    if not (db and db.mapTip and map and map:IsShown() and scroll and scroll:IsMouseOver())
-        or OtherTooltipShown() then
+    if not (db and db.mapTip and map and map:IsShown() and scroll and scroll:IsMouseOver()) then
         if mapTip:IsShown() then mapTip:Hide() end
         lastMapZone = nil
         return
@@ -484,7 +486,10 @@ local function UpdateMapTip()
     if key ~= lastMapZone or mapWaiting or not mapTip:IsShown() then
         lastMapZone = key
         mapWaiting = false
-        mapTip:SetOwner(UIParent, "ANCHOR_CURSOR_RIGHT", 20, 0)
+        -- Sits in the map's bottom-left corner, out of the way of cursor tooltips.
+        mapTip:SetOwner(scroll, "ANCHOR_NONE")
+        mapTip:ClearAllPoints()
+        mapTip:SetPoint("BOTTOMLEFT", scroll, "BOTTOMLEFT", 8, 8)
         mapTip:AddLine(name .. " fishing", 1, 0.82, 0)
         AddZoneLines(name)
         if shift then
@@ -573,6 +578,12 @@ castButton:SetScript("PostClick", function(_, mouseButton, down)
     -- the right-click doesn't turn the camera, then release it. Key presses
     -- skip this: their key-up goes to Interact once the cast starts, so a
     -- mouselook started on key-down would never be released.
+    if mouseButton == "Jump" then
+        -- The jump key, pointed here while the pole is out. Pressed on the
+        -- move, it means "I'm done fishing": put the weapons back.
+        if down then JumpSwap() end
+        return
+    end
     if mouseButton ~= "RightButton" then return end
     if down then
         MouselookStart()
@@ -600,11 +611,14 @@ local function UpdateKeys()
     keysPending = false
     ClearOverrideBindings(keyOwner)
     if not HasPoleEquipped() then return end
+    local jumpKeys = { SPACE = true }
+    for _, key in ipairs({ GetBindingKey("JUMP") }) do jumpKeys[key] = true end
     for _, key in ipairs(FishingKeys()) do
         if fishingActive then
             SetOverrideBinding(keyOwner, true, key, "INTERACTTARGET")
         else
-            SetOverrideBindingClick(keyOwner, true, key, CAST_BUTTON_NAME)
+            -- Jump keys click as "Jump" so the button can tell them apart.
+            SetOverrideBindingClick(keyOwner, true, key, CAST_BUTTON_NAME, jumpKeys[key] and "Jump" or nil)
         end
     end
 end
@@ -1133,6 +1147,36 @@ local function FinishOffhand()
     EquipCursorItem(17)
 end
 
+-- Jumping while moving with the pole out: swap back to the remembered weapons.
+-- Out of combat only (in combat the fishing keys are off and the swap button
+-- or its keybind does the job). When Space is a fishing key, that first press
+-- swaps instead of jumping; Space jumps again as soon as the pole is away.
+local lastJumpSwap = 0
+function JumpSwap()
+    if not (db and db.jumpSwap) or InCombatLockdown() or not HasPoleEquipped() then return end
+    local moving = (IsPlayerMoving and IsPlayerMoving()) or (GetUnitSpeed("player") or 0) > 0
+    if not moving then return end
+    if GetTime() - lastJumpSwap < 1 then return end
+    if CursorHasItem and CursorHasItem() then return end
+    local w = CharData().weapons
+    if not (w and w.mh) then return end
+    lastJumpSwap = GetTime()
+    local equip = (C_Item and C_Item.EquipItemByName) or EquipItemByName
+    equip(w.mh, 16)
+    if w.oh then
+        if w.oh == w.mh then
+            offhandWanted = w.oh -- identical pair: FinishOffhand fills the off-hand
+            offhandUntil = GetTime() + 5
+        else
+            equip(w.oh, 17)
+        end
+    end
+end
+-- Jump keys that aren't fishing keys (Space fishing off, or another jump key).
+if JumpOrAscendStart then
+    hooksecurefunc("JumpOrAscendStart", function() JumpSwap() end)
+end
+
 swapButton:HookScript("OnClick", function()
     -- Runs right after the swap macro. If we're going pole -> two identical
     -- weapons, remember to fill the off-hand once the main hand is on.
@@ -1438,8 +1482,11 @@ do
         function() return db.spaceOn end, function(v) SetSpace(v) end, 0, -4)
     local cDbl = PanelCheck("Double right-click to cast", "Double right-click anywhere to cast while a fishing pole is equipped.", cSpace,
         function() return db.doubleClick end, function(v) db.doubleClick = v end)
+    local cJump = PanelCheck("Jumping on the move swaps back to weapons",
+        "With your fishing pole out, press jump while moving to put your weapons back on. Out of combat only. If Space is your fishing key, that press swaps instead of jumping.", cDbl,
+        function() return db.jumpSwap end, function(v) db.jumpSwap = v end)
     local cMap = PanelCheck("Fishing info on the world map",
-        "Hover a zone on the world map to see its Minimum and Recommended fishing skill.", cDbl,
+        "Hover a zone on the world map to see its Minimum and Recommended fishing skill. Hold Shift to add its catches.", cJump,
         function() return db.mapTip end,
         function(v) db.mapTip = v; if not v then mapTip:Hide() end end)
 
@@ -1553,6 +1600,9 @@ SlashCmdList.FOREVERFISHINGUTILITIES = function(msg)
     elseif cmd == "dblclick" then
         db.doubleClick = not db.doubleClick
         Say("double right-click to cast " .. OnOff(db.doubleClick) .. ".")
+    elseif cmd == "jumpswap" then
+        db.jumpSwap = not db.jumpSwap
+        Say("jumping on the move swaps back to weapons " .. OnOff(db.jumpSwap) .. ".")
     elseif cmd == "map" then
         db.mapTip = not db.mapTip
         if not db.mapTip then mapTip:Hide() end
@@ -1575,6 +1625,7 @@ SlashCmdList.FOREVERFISHINGUTILITIES = function(msg)
         print("  |cffffd100/ffu reset|r  move the window back to its default spot (centred near the top of the screen)")
         print("  |cffffd100/ffu space|r  Space casts and clicks the bobber (" .. OnOff(db.spaceOn) .. ")")
         print("  |cffffd100/ffu dblclick|r  double right-click to cast (" .. OnOff(db.doubleClick) .. ")")
+        print("  |cffffd100/ffu jumpswap|r  jump while moving to swap back to weapons (" .. OnOff(db.jumpSwap) .. ")")
         print("  |cffffd100/ffu map|r  fishing info when hovering zones on the world map (" .. OnOff(db.mapTip) .. ")")
         print("  |cffffd100/ffu sound [0-100]|r  quiet all but the splash while fishing (" .. OnOff(db.sound) .. ")")
         print("  |cffffd100/ffu catches [smart|up|down]|r  list catches when hovering the zone name (" .. OnOff(db.dropTip) .. ", opens " .. (db.flyout or "smart") .. ")")
