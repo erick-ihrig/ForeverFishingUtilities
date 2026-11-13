@@ -449,6 +449,7 @@ local function OtherTooltipShown()
 end
 
 local lastMapZone
+local mapWaiting = false -- item names in the map tooltip still loading
 local function UpdateMapTip()
     local map = WorldMapFrame
     local scroll = map and map.ScrollContainer
@@ -475,13 +476,45 @@ local function UpdateMapTip()
         lastMapZone = nil
         return
     end
-    -- Rebuild only when the zone changes; a cursor-anchored tooltip follows
-    -- the mouse by itself.
-    if name ~= lastMapZone or not mapTip:IsShown() then
-        lastMapZone = name
+    -- Rebuild only when the zone or the Shift state changes (or item names are
+    -- still arriving); a cursor-anchored tooltip follows the mouse by itself.
+    local drops = ns.DROP_ZONES and ns.DROP_TABLES[ns.DROP_ZONES[name] or 0]
+    local shift = drops and IsShiftKeyDown() or false
+    local key = name .. (shift and "+" or "")
+    if key ~= lastMapZone or mapWaiting or not mapTip:IsShown() then
+        lastMapZone = key
+        mapWaiting = false
         mapTip:SetOwner(UIParent, "ANCHOR_CURSOR_RIGHT", 20, 0)
         mapTip:AddLine(name .. " fishing", 1, 0.82, 0)
         AddZoneLines(name)
+        if shift then
+            -- Shift held: the zone's open-water catches, as in the window's list.
+            mapTip:AddLine(" ")
+            for _, drop in ipairs(drops) do
+                local id = drop[1]
+                local itemName, icon = DropInfo(id)
+                local skip = false
+                if itemName then
+                    dropAsked[id] = nil
+                else
+                    dropAsked[id] = dropAsked[id] or GetTime()
+                    skip = GetTime() - dropAsked[id] > DROP_GIVE_UP
+                    if not skip then mapWaiting = true end
+                end
+                if not skip then
+                    mapTip:AddDoubleLine(
+                        "|T" .. (icon or "Interface\\Icons\\INV_Misc_QuestionMark") .. ":14:14:0:0:64:64:5:59:5:59|t " ..
+                            (itemName or "Loading...") ..
+                            (drop[3] and (COLOR.grey .. TAG_TEXT[drop[3]] .. "|r") or ""),
+                        RateText(drop[2]), 1, 1, 1, 1, 1, 1)
+                end
+            end
+            if ns.DROP_SUBZONES[name] then
+                mapTip:AddLine("Coasts and some subzones differ.", 0.5, 0.5, 0.5)
+            end
+        elseif drops then
+            mapTip:AddLine("Hold Shift for catches", 0.5, 0.5, 0.5)
+        end
         mapTip:Show()
     end
 end
