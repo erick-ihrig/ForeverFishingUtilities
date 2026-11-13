@@ -51,7 +51,7 @@ Some technical details, for the curious:
 
 - Skill values are bundled in `Data.lua`, taken from the Classic-era zone tables, which WoW Forever guides match so far. Zones new to Forever have no published values yet. (Addons can't access the internet, so the data has to ship with the addon.)
 - Zone lookups use English zone names, so the addon currently works on **English (enUS) clients** only.
-- Catch lists and rates are bundled in `Drops.lua`, generated from the open-source cMaNGOS Classic database (github.com/cmangos/classic-db). They cover open water only, not fishing pools, and they're Classic-era values that may differ on Forever.
+- Catch lists and rates are bundled in `Drops.lua`, generated from the open-source cMaNGOS Classic database (github.com/cmangos/classic-db) by `tools/update_drops.py`, which also checks that source for changes. They cover open water only, not fishing pools, and they're Classic-era values that may differ on Forever.
 - The lure list uses the Classic lures. Lures added in Forever aren't included yet.
 
 ## Credits
