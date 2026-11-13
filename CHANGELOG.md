@@ -1,11 +1,10 @@
 # Changelog
 
-## Unreleased
-- New: hover the zone name to see what you can catch there, with icons, names and catch rates. The list is as wide as the window and opens above or below it (`/ffu catches smart|up|down`; smart opens away from the nearer screen edge).
-- The catches list leaves out Classic items that WoW Forever's server doesn't have (they showed as "Loading...").
+## 1.1.0
+- New: hover the zone name to see what you can catch there, with icons, names and catch rates. The list is as wide as the window and opens above or below it (`/ffu catches smart|up|down`; smart opens away from the nearer screen edge). Classic items that WoW Forever doesn't have are left out.
 - New: on the world map, hold Shift while hovering a zone to add its catches to the fishing tooltip.
 - New: with your pole out, jumping while moving swaps back to your weapons (out of combat; `/ffu jumpswap`, on by default).
-- The world map fishing tooltip now sits in the map's bottom-left corner instead of following the cursor, so it no longer needs to hide behind other addons' tooltips.
+- The world map fishing tooltip now sits in the map's bottom-left corner instead of following the cursor, out of the way of other addons' tooltips.
 - New: an options panel under Options > AddOns > Forever Fishing Utilities (`/ffu options`).
 - The three lines in the window are now evenly spaced.
 - Your Skill now shows your cap, like 140/225, and turns red when you're capped and can learn the next rank (not at 300, and not before you're high enough level).
