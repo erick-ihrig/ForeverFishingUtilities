@@ -9,4 +9,5 @@
 ## SavedVariables: ForeverFishingUtilitiesDB
 
 Data.lua
+Drops.lua
 ForeverFishingUtilities.lua

@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased
+- New: hover the zone name to see what you can catch there, with icons, names and catch rates. The list is as wide as the window and opens above or below it (`/ffu catches smart|up|down`; smart opens away from the nearer screen edge).
+- New: an options panel under Options > AddOns > Forever Fishing Utilities (`/ffu options`).
+- The three lines in the window are now evenly spaced.
 - Your Skill now shows your cap, like 140/225, and turns red when you're capped and can learn the next rank (not at 300, and not before you're high enough level).
 - The world map fishing tooltip now hides while the game or another addon (like Questie) is showing its own tooltip.
 

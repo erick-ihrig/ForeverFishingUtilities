@@ -31,6 +31,8 @@ A small fishing companion for **World of Warcraft: Forever**. It shows the Fishi
 | `/ffu dblclick` | Turn double right-click casting on or off |
 | `/ffu map` | Turn the world map fishing info on or off (on by default) |
 | `/ffu sound [0-100]` | Turn fishing sound mode on or off, or set its volume |
+| `/ffu catches [smart\|up\|down]` | Turn the catches list (hover the zone name) on or off, or choose where it opens |
+| `/ffu options` | Open the options panel (also under Options > AddOns) |
 
 Type `/ffu help` to see the commands and whether each option is on.
 
@@ -49,6 +51,7 @@ Some technical details, for the curious:
 
 - Skill values are bundled in `Data.lua`, taken from the Classic-era zone tables, which WoW Forever guides match so far. Zones new to Forever have no published values yet. (Addons can't access the internet, so the data has to ship with the addon.)
 - Zone lookups use English zone names, so the addon currently works on **English (enUS) clients** only.
+- Catch lists and rates are bundled in `Drops.lua`, generated from the open-source cMaNGOS Classic database (github.com/cmangos/classic-db). They cover open water only, not fishing pools, and they're Classic-era values that may differ on Forever.
 - The lure list uses the Classic lures. Lures added in Forever aren't included yet.
 
 ## Credits

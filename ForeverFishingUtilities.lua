@@ -31,9 +31,12 @@ local DEFAULTS = {
     sound = false,        -- quiet everything but effects while fishing (opt-in)
     mapTip = true,        -- fishing numbers when hovering zones on the world map
     volume = 1,           -- master volume while fishing
+    dropTip = true,       -- list of catches when hovering the zone name
+    flyout = "smart",     -- where that list opens: "smart", "up" or "down"
 }
 
 local db
+local RegisterOptions -- defined with the options panel, further down
 
 ---------------------------------------------------------------------------
 -- Lookups
@@ -146,7 +149,7 @@ line2:SetPoint("RIGHT", -8, 0)
 line2:SetJustifyH("LEFT")
 
 local lineSkill = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-lineSkill:SetPoint("TOPLEFT", line2, "BOTTOMLEFT", 0, -3)
+lineSkill:SetPoint("TOPLEFT", line2, "BOTTOMLEFT", 0, -6) -- same gap as above line 2
 lineSkill:SetJustifyH("LEFT")
 lineSkill:SetWordWrap(false)
 
@@ -159,7 +162,7 @@ local function Fit(lines)
         w = math.max(w, fs:GetStringWidth() + ((fs == line1 and 56) or (fs == lineSkill and 54) or 18))
     end
     frame:SetWidth(w)
-    frame:SetHeight(17 + 14 * #lines) -- a little extra so the corner buttons clear line 2
+    frame:SetHeight(20 + 14 * #lines) -- a little extra so the corner buttons clear line 2
 end
 
 -- Character level needed to learn the next Fishing rank, by current cap.
@@ -230,6 +233,163 @@ local function Refresh()
         frame:Show()
     end
 end
+
+---------------------------------------------------------------------------
+-- Catches flyout: what the water here can give, shown on hovering the zone name
+---------------------------------------------------------------------------
+-- A list anchored to the window and as wide as it, opening above or below.
+-- "smart" opens away from the nearer screen edge (top or bottom).
+
+local ROW_H = 16
+local flyout = CreateFrame("Frame", "ForeverFishingUtilitiesCatches", frame, "BackdropTemplate")
+flyout:SetFrameStrata("TOOLTIP")
+flyout:SetBackdrop({
+    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 16, edgeSize = 12,
+    insets = { left = 3, right = 3, top = 3, bottom = 3 },
+})
+flyout:SetBackdropColor(0, 0, 0, 0.9)
+flyout:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
+flyout:Hide()
+
+local flyTitle = flyout:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+flyTitle:SetPoint("TOPLEFT", 8, -7)
+flyTitle:SetPoint("TOPRIGHT", -8, -7)
+flyTitle:SetJustifyH("LEFT")
+flyTitle:SetWordWrap(false)
+
+local flyNote = flyout:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+flyNote:SetPoint("BOTTOMLEFT", 8, 7)
+flyNote:SetPoint("BOTTOMRIGHT", -8, 7)
+flyNote:SetJustifyH("LEFT")
+flyNote:SetWordWrap(false)
+
+local flyRows = {}
+local function FlyRow(i)
+    local row = flyRows[i]
+    if row then return row end
+    row = CreateFrame("Frame", nil, flyout)
+    row:SetHeight(ROW_H)
+    row:SetPoint("TOPLEFT", 8, -7 - 14 - (i - 1) * ROW_H)
+    row:SetPoint("RIGHT", -8, 0)
+    row.icon = row:CreateTexture(nil, "ARTWORK")
+    row.icon:SetSize(ROW_H - 2, ROW_H - 2)
+    row.icon:SetPoint("LEFT")
+    row.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+    row.rate = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    row.rate:SetPoint("RIGHT")
+    row.rate:SetJustifyH("RIGHT")
+    row.name = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    row.name:SetPoint("LEFT", row.icon, "RIGHT", 4, 0)
+    row.name:SetPoint("RIGHT", row.rate, "LEFT", -4, 0)
+    row.name:SetJustifyH("LEFT")
+    row.name:SetWordWrap(false)
+    flyRows[i] = row
+    return row
+end
+
+-- The catch table for where you stand, and the name it belongs to.
+local function LookupDrops()
+    local zone = GetRealZoneText() or ""
+    local sub = GetSubZoneText() or ""
+    local subs = ns.DROP_SUBZONES and ns.DROP_SUBZONES[zone]
+    if sub ~= "" and subs and subs[sub] then
+        return ns.DROP_TABLES[subs[sub]], sub
+    end
+    local id = ns.DROP_ZONES and ns.DROP_ZONES[zone]
+    return id and ns.DROP_TABLES[id], zone
+end
+
+local function RateText(pct)
+    if pct >= 10 then return string.format("%.0f%%", pct) end
+    if pct >= 1 then return (string.format("%.1f", pct):gsub("%.0$", "")) .. "%" end
+    return string.format("%g%%", pct)
+end
+
+local TAG_TEXT = { w = " (winter)", s = " (summer)", q = " (quest)" }
+
+-- Item name (coloured by quality) and icon; the name is nil until the game has loaded the item.
+local function DropInfo(itemID)
+    local getInfo = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+    local name, _, quality = getInfo(itemID)
+    local getIcon = (C_Item and C_Item.GetItemIconByID) or GetItemIcon
+    local icon = getIcon and getIcon(itemID)
+    if not name then
+        if C_Item and C_Item.RequestLoadItemDataByID then C_Item.RequestLoadItemDataByID(itemID) end
+        return nil, icon
+    end
+    local color = quality and ITEM_QUALITY_COLORS and ITEM_QUALITY_COLORS[quality]
+    if color and color.hex then name = color.hex .. name .. "|r" end
+    return name, icon
+end
+
+local flyWaiting = false -- some item names weren't loaded yet
+
+local function FillFlyout()
+    local drops, where = LookupDrops()
+    flyWaiting = false
+    local n = 0
+    if drops then
+        flyTitle:SetText("Catches: " .. where)
+        for i, drop in ipairs(drops) do
+            local row = FlyRow(i)
+            local name, icon = DropInfo(drop[1])
+            if not name then flyWaiting = true end
+            row.icon:SetTexture(icon or "Interface\\Icons\\INV_Misc_QuestionMark")
+            row.rate:SetText(RateText(drop[2]))
+            row.name:SetText((name or "Loading...") ..
+                (drop[3] and (COLOR.grey .. TAG_TEXT[drop[3]] .. "|r") or ""))
+            row:Show()
+            n = i
+        end
+        flyNote:SetText("Open water, per catch")
+    else
+        flyTitle:SetText("Catches")
+        flyNote:SetText("No catch data for this area yet")
+    end
+    for i = n + 1, #flyRows do flyRows[i]:Hide() end
+    flyout:SetHeight(7 + 14 + n * ROW_H + 4 + 12 + 7)
+end
+
+local function PlaceFlyout()
+    local dir = db.flyout
+    if dir ~= "up" and dir ~= "down" then
+        -- Smart: open away from whichever of the top and bottom screen edges is nearer.
+        local _, y = frame:GetCenter()
+        local scale = frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
+        dir = (y and y * scale > UIParent:GetHeight() / 2) and "down" or "up"
+    end
+    flyout:ClearAllPoints()
+    if dir == "down" then
+        flyout:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, -2)
+        flyout:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", 0, -2)
+    else
+        flyout:SetPoint("BOTTOMLEFT", frame, "TOPLEFT", 0, 2)
+        flyout:SetPoint("BOTTOMRIGHT", frame, "TOPRIGHT", 0, 2)
+    end
+end
+
+-- Watches the mouse instead of using a mouse-enabled frame over the zone name,
+-- so dragging the window by its header still works.
+local flyElapsed, flyKey = 0, nil
+frame:SetScript("OnUpdate", function(_, elapsed)
+    flyElapsed = flyElapsed + elapsed
+    if flyElapsed < 0.1 then return end
+    flyElapsed = 0
+    if not (db and db.dropTip and line1:IsMouseOver()) then
+        if flyout:IsShown() then flyout:Hide() end
+        flyKey = nil
+        return
+    end
+    local key = (GetRealZoneText() or "") .. "|" .. (GetSubZoneText() or "")
+    if key ~= flyKey or flyWaiting or not flyout:IsShown() then
+        flyKey = key
+        FillFlyout()
+    end
+    PlaceFlyout()
+    flyout:Show()
+end)
 
 ---------------------------------------------------------------------------
 -- World map: fishing numbers for the zone under the cursor
@@ -1040,6 +1200,7 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
         self:SetPoint(p[1], UIParent, p[3], p[4], p[5])
         -- Lures and their expiry don't fire a reliable event, so check every second.
         C_Timer.NewTicker(1, Refresh)
+        RegisterOptions()
         self:UnregisterEvent("ADDON_LOADED")
         return
     end
@@ -1131,6 +1292,183 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
 end)
 
 ---------------------------------------------------------------------------
+-- Options panel (Options > AddOns > Forever Fishing Utilities)
+---------------------------------------------------------------------------
+
+local function ResetPosition()
+    db.point = CopyTable(DEFAULTS.point)
+    if InCombatLockdown() then
+        Say("the window can't move in combat; it will reset after combat.")
+    else
+        frame:ClearAllPoints()
+        frame:SetPoint("TOP", UIParent, "TOP", 0, -120)
+        Say("window moved back to its default spot: centred near the top of the screen.")
+    end
+end
+
+local panel = CreateFrame("Frame", "ForeverFishingUtilitiesOptions")
+panel.name = "Forever Fishing Utilities"
+panel:Hide()
+local optionsCategory
+local panelWidgets = {} -- each has :Sync() to show the saved setting
+
+local function PanelHeader(text, anchor, yOffset)
+    local fs = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    fs:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, yOffset or -14)
+    fs:SetText(text)
+    return fs
+end
+
+local function PanelCheck(label, hint, anchor, get, set, xOffset, yOffset)
+    local cb = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
+    cb:SetSize(26, 26)
+    cb:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", xOffset or 0, yOffset or -2)
+    local text = cb:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    text:SetPoint("LEFT", cb, "RIGHT", 2, 0)
+    text:SetText(label)
+    cb:SetHitRectInsets(0, -text:GetStringWidth() - 4, 0, 0)
+    cb:SetScript("OnClick", function(self)
+        set(self:GetChecked() and true or false)
+        for _, w in ipairs(panelWidgets) do w:Sync() end
+        Refresh()
+    end)
+    if hint then
+        cb:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(label)
+            GameTooltip:AddLine(hint, 1, 1, 1, true)
+            GameTooltip:Show()
+        end)
+        cb:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    end
+    function cb:Sync() self:SetChecked(get() and true or false) end
+    panelWidgets[#panelWidgets + 1] = cb
+    return cb
+end
+
+do
+    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", 16, -16)
+    title:SetText("Forever Fishing Utilities")
+
+    local hWindow = PanelHeader("Window", title, -16)
+    local cShown = PanelCheck("Show the window", "Same as typing /ffu.", hWindow,
+        function() return db.shown end, function(v) db.shown = v end, 0, -4)
+    local cPole = PanelCheck("Only with a fishing pole equipped",
+        "Hide the window whenever you aren't holding a fishing pole.", cShown,
+        function() return db.poleOnly end, function(v) db.poleOnly = v end)
+    local cLock = PanelCheck("Lock the window in place", "Stops the window from being dragged.", cPole,
+        function() return db.locked end, function(v) db.locked = v end)
+
+    local reset = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    reset:SetSize(130, 22)
+    reset:SetPoint("LEFT", cLock, "RIGHT", 220, 0)
+    reset:SetText("Reset position")
+    reset:SetScript("OnClick", ResetPosition)
+
+    local hCatch = PanelHeader("Catches list", cLock)
+    local cDrops = PanelCheck("Show catches when hovering the zone name",
+        "Hover the zone name at the top of the window to list what the water here can give, with catch rates.",
+        hCatch, function() return db.dropTip end, function(v) db.dropTip = v end, 0, -4)
+    local dirLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    dirLabel:SetPoint("TOPLEFT", cDrops, "BOTTOMLEFT", 30, -6)
+    dirLabel:SetText("Opens:")
+    local function Direction(label, hint, value, anchor, x)
+        local cb = PanelCheck(label, hint, dirLabel,
+            function() return (db.flyout or "smart") == value end,
+            function() db.flyout = value end)
+        cb:ClearAllPoints()
+        cb:SetPoint("LEFT", anchor, "RIGHT", x, 0)
+        return cb
+    end
+    local dSmart = Direction("Smart", "Opens away from the nearer screen edge: downward when the window is in the top half of the screen, upward when it's in the bottom half.", "smart", dirLabel, 8)
+    local dUp = Direction("Up", "Always opens above the window.", "up", dSmart, 60)
+    Direction("Down", "Always opens below the window.", "down", dUp, 40)
+
+    local hFish = PanelHeader("Fishing", cDrops, -44)
+    local cSpace = PanelCheck("Space casts and clicks the bobber",
+        "Only while a fishing pole is equipped. Without one, or in combat, Space jumps.", hFish,
+        function() return db.spaceOn end, function(v) SetSpace(v) end, 0, -4)
+    local cDbl = PanelCheck("Double right-click to cast", "Double right-click anywhere to cast while a fishing pole is equipped.", cSpace,
+        function() return db.doubleClick end, function(v) db.doubleClick = v end)
+    local cMap = PanelCheck("Fishing info on the world map",
+        "Hover a zone on the world map to see its Minimum and Recommended fishing skill.", cDbl,
+        function() return db.mapTip end,
+        function(v) db.mapTip = v; if not v then mapTip:Hide() end end)
+
+    local hSound = PanelHeader("Sound", cMap)
+    local cSound = PanelCheck("Quiet everything but the splash while fishing",
+        "While fishing, music, ambience, dialog and pet sounds are turned off and effects are loud. Your own settings come back afterwards.",
+        hSound, function() return db.sound end, function(v) SetSound(v) end, 0, -4)
+
+    local volLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    volLabel:SetPoint("TOPLEFT", cSound, "BOTTOMLEFT", 30, -8)
+    local slider = CreateFrame("Slider", nil, panel)
+    slider:SetOrientation("HORIZONTAL")
+    slider:SetSize(180, 16)
+    slider:SetPoint("LEFT", volLabel, "LEFT", 190, 0)
+    slider:SetMinMaxValues(0, 100)
+    slider:SetValueStep(5)
+    if slider.SetObeyStepOnDrag then slider:SetObeyStepOnDrag(true) end
+    local track = slider:CreateTexture(nil, "BACKGROUND")
+    track:SetColorTexture(1, 1, 1, 0.2)
+    track:SetPoint("LEFT")
+    track:SetPoint("RIGHT")
+    track:SetHeight(4)
+    local thumb = slider:CreateTexture(nil, "OVERLAY")
+    thumb:SetTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
+    thumb:SetSize(24, 24)
+    slider:SetThumbTexture(thumb)
+    local function VolumeText()
+        volLabel:SetText("Master volume while fishing: " .. math.floor(db.volume * 100 + 0.5) .. "%")
+    end
+    slider:SetScript("OnValueChanged", function(self, value)
+        if self.syncing then return end
+        db.volume = math.floor(value / 5 + 0.5) * 5 / 100
+        VolumeText()
+        if db.sound and db.cvarCache then ApplySound() end
+    end)
+    function slider:Sync()
+        self.syncing = true
+        self:SetValue(math.floor(db.volume * 100 + 0.5))
+        self.syncing = false
+        VolumeText()
+    end
+    panelWidgets[#panelWidgets + 1] = slider
+
+    local keys = panel:CreateFontString(nil, "ARTWORK", "GameFontDisable")
+    keys:SetPoint("TOPLEFT", volLabel, "BOTTOMLEFT", -30, -22)
+    keys:SetText("Keybinds: Options > Keybindings > AddOns > Forever Fishing Utilities")
+end
+
+panel:SetScript("OnShow", function()
+    if not db then return end
+    for _, w in ipairs(panelWidgets) do w:Sync() end
+end)
+
+function RegisterOptions()
+    if Settings and Settings.RegisterCanvasLayoutCategory then
+        optionsCategory = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
+        Settings.RegisterAddOnCategory(optionsCategory)
+    elseif InterfaceOptions_AddCategory then
+        InterfaceOptions_AddCategory(panel)
+    end
+end
+
+local function OpenOptions()
+    if InCombatLockdown() then
+        Say("the options can't open in combat.")
+        return
+    end
+    if optionsCategory and Settings and Settings.OpenToCategory then
+        Settings.OpenToCategory(optionsCategory.GetID and optionsCategory:GetID() or optionsCategory.ID)
+    elseif InterfaceOptionsFrame_OpenToCategory then
+        InterfaceOptionsFrame_OpenToCategory(panel)
+        InterfaceOptionsFrame_OpenToCategory(panel)
+    end
+end
+
+---------------------------------------------------------------------------
 -- Slash commands
 ---------------------------------------------------------------------------
 
@@ -1149,13 +1487,18 @@ SlashCmdList.FOREVERFISHINGUTILITIES = function(msg)
         db.locked = not db.locked
         Say(db.locked and "window locked." or "window unlocked. Drag to move it.")
     elseif cmd == "reset" then
-        db.point = CopyTable(DEFAULTS.point)
-        if InCombatLockdown() then
-            Say("the window can't move in combat; it will reset after combat.")
+        ResetPosition()
+    elseif cmd == "options" or cmd == "config" then
+        OpenOptions()
+        return
+    elseif cmd == "catches" then
+        if a == "smart" or a == "up" or a == "down" then
+            db.flyout = a
+            db.dropTip = true
+            Say("catches list opens " .. (a == "smart" and "away from the nearer screen edge" or a) .. ".")
         else
-            frame:ClearAllPoints()
-            frame:SetPoint("TOP", UIParent, "TOP", 0, -120)
-            Say("window moved back to its default spot: centred near the top of the screen.")
+            db.dropTip = not db.dropTip
+            Say("catches list on hovering the zone name " .. OnOff(db.dropTip) .. ".")
         end
     elseif cmd == "space" then
         ToggleSpace()
@@ -1187,6 +1530,8 @@ SlashCmdList.FOREVERFISHINGUTILITIES = function(msg)
         print("  |cffffd100/ffu dblclick|r  double right-click to cast (" .. OnOff(db.doubleClick) .. ")")
         print("  |cffffd100/ffu map|r  fishing info when hovering zones on the world map (" .. OnOff(db.mapTip) .. ")")
         print("  |cffffd100/ffu sound [0-100]|r  quiet all but the splash while fishing (" .. OnOff(db.sound) .. ")")
+        print("  |cffffd100/ffu catches [smart|up|down]|r  list catches when hovering the zone name (" .. OnOff(db.dropTip) .. ", opens " .. (db.flyout or "smart") .. ")")
+        print("  |cffffd100/ffu options|r  open the options panel")
         print("  Keybinds: Options > Keybindings > AddOns > Forever Fishing Utilities")
         return
     end
