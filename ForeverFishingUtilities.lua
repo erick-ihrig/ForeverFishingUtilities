@@ -843,12 +843,68 @@ local function UpdateSwap()
     local w = data.weapons
     if w and w.mh then
         toWeapons = "/equipslot 16 item:" .. w.mh
-        if w.oh then toWeapons = toWeapons .. "\n/equipslot 17 item:" .. w.oh end
+        -- Two identical weapons share an item ID, so a second "/equipslot 17
+        -- item:<id>" would grab the copy that's still moving into the main
+        -- hand. In that case the off-hand is equipped right after, from its
+        -- exact bag slot (see FinishOffhand).
+        if w.oh and w.oh ~= w.mh then
+            toWeapons = toWeapons .. "\n/equipslot 17 item:" .. w.oh
+        end
     end
     local pole = PoleToEquip()
     swapButton:SetAttribute("toWeapons", toWeapons)
     swapButton:SetAttribute("toPole", pole and ("/equipslot 16 item:" .. pole) or "")
 end
+
+-- Off-hand follow-up for identical weapons (e.g. two Copper Daggers).
+-- Set when the swap button puts weapons back on and both are the same item.
+local offhandWanted, offhandUntil = nil, 0
+
+local function FindInBags(itemID)
+    if not C_Container then return nil end
+    for bag = 0, (NUM_BAG_SLOTS or 4) do
+        for slot = 1, C_Container.GetContainerNumSlots(bag) or 0 do
+            local info = C_Container.GetContainerItemInfo(bag, slot)
+            if info and info.itemID == itemID and not info.isLocked then
+                return bag, slot
+            end
+        end
+    end
+end
+
+local function FinishOffhand()
+    if not offhandWanted then return end
+    if InCombatLockdown() then return end -- tried again when combat ends
+    local mh = GetInventoryItemID("player", 16)
+    if GetInventoryItemID("player", 17) then
+        offhandWanted = nil -- off-hand already filled
+        return
+    end
+    if mh ~= offhandWanted then
+        -- The main-hand swap hasn't landed yet; give up after a few seconds.
+        if GetTime() > offhandUntil then offhandWanted = nil end
+        return
+    end
+    local bag, slot = FindInBags(offhandWanted)
+    if not bag then
+        if GetTime() > offhandUntil then offhandWanted = nil end
+        return
+    end
+    offhandWanted = nil
+    ClearCursor()
+    C_Container.PickupContainerItem(bag, slot)
+    EquipCursorItem(17)
+end
+
+swapButton:HookScript("OnClick", function()
+    -- Runs right after the swap macro. If we're going pole -> two identical
+    -- weapons, remember to fill the off-hand once the main hand is on.
+    local w = CharData().weapons
+    if HasPoleEquipped() and w and w.mh and w.oh and w.oh == w.mh then
+        offhandWanted = w.oh
+        offhandUntil = GetTime() + 5
+    end
+end)
 
 -- Equipment changes arrive one slot at a time, so wait until they settle
 -- before deciding what "your weapons" are.
@@ -861,7 +917,9 @@ local function RecordGear()
         local oh = GetInventoryItemID("player", 17)
         if IsPole(mh) then
             data.pole = mh
-        elseif mh then
+        elseif mh and not (offhandWanted and not oh) then
+            -- (skip while the off-hand follow-up is still pending, so an
+            -- empty off-hand isn't remembered by mistake)
             data.weapons = { mh = mh, oh = oh }
         end
         UpdateSwap()
@@ -984,6 +1042,7 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
     elseif event == "BAG_UPDATE_DELAYED" then
         UpdateLure()
         UpdateSwap()
+        if offhandWanted then FinishOffhand() end
         return
     elseif event == "SKILL_LINES_CHANGED" or event == "CHAT_MSG_SKILL" then
         UpdateLure()
@@ -1006,7 +1065,10 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
             Say("Better Fishing is also loaded. Disable it so the two don't fight over your keys.")
         end
     elseif event == "PLAYER_EQUIPMENT_CHANGED" then
-        if arg1 == 16 or arg1 == 17 then RecordGear() end
+        if arg1 == 16 or arg1 == 17 then
+            RecordGear()
+            if offhandWanted then C_Timer.After(0.2, FinishOffhand) end
+        end
         UpdateKeys() -- Space only casts while the pole is on; otherwise it jumps
     elseif event == "UPDATE_BINDINGS" then
         UpdateKeys()
@@ -1026,6 +1088,10 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
         if lurePending then UpdateLure() end
         if swapPending then UpdateSwap() end
         if swapKeysPending then UpdateSwapKeys() end
+        if offhandWanted then
+            offhandUntil = GetTime() + 5 -- swapped mid-fight: finish now
+            FinishOffhand()
+        end
         -- falls through to Refresh, which can resize the window again
     elseif event == "PLAYER_LOGOUT" then
         RestoreSettings()

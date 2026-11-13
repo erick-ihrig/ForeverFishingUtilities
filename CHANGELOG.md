@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- Fixed: swapping back to two identical weapons (e.g. two Copper Daggers) now fills the off-hand too. If you swap mid-fight, the off-hand follows as soon as combat ends.
+
 ## 1.0.0
 First public release.
 - Zone skill window: Minimum and Recommended Fishing skill for your zone or subzone, plus your own skill, including pole and lure bonuses.
