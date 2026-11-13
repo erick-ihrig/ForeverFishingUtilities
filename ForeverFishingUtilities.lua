@@ -162,14 +162,32 @@ local function Fit(lines)
     frame:SetHeight(17 + 14 * #lines) -- a little extra so the corner buttons clear line 2
 end
 
+-- Character level needed to learn the next Fishing rank, by current cap.
+local NEXT_RANK_LEVEL = { [75] = 10, [150] = 20, [225] = 35 }
+local SKILL_MAX = 300
+
+-- True when skill is stuck at its cap and the next rank can be learned now.
+local function NeedsNextRank(rank, maxRank)
+    if not maxRank or maxRank <= 0 or rank < maxRank then return false end
+    if maxRank >= SKILL_MAX then return false end
+    local needLevel = NEXT_RANK_LEVEL[maxRank]
+    if needLevel and UnitLevel("player") < needLevel then return false end
+    return true
+end
+
+-- "Your Skill: 140/225", red when capped and the next rank is learnable.
 local function SkillText()
-    local rank, bonus = GetFishingSkill()
+    local rank, bonus, maxRank = GetFishingSkill()
     if not rank then
         return "Your Skill: " .. COLOR.grey .. "not learned|r"
     end
-    local text = "Your Skill: " .. COLOR.white .. (rank + (bonus or 0)) .. "|r"
+    local color = NeedsNextRank(rank, maxRank) and COLOR.red or COLOR.white
+    local text = "Your Skill: " .. color .. rank
+    if maxRank and maxRank > 0 then text = text .. "/" .. maxRank end
+    text = text .. "|r"
     if bonus and bonus ~= 0 then
-        text = text .. COLOR.grey .. "  (" .. rank .. (bonus > 0 and " +" or " ") .. bonus .. ")|r"
+        text = text .. COLOR.grey .. "  (" .. (bonus > 0 and "+" or "") .. bonus ..
+            " = " .. (rank + bonus) .. ")|r"
     end
     return text
 end
@@ -245,11 +263,23 @@ local function AddZoneLines(name)
     return added
 end
 
+-- True when the game or another addon (Questie, map pins, etc.) is already
+-- showing a tooltip, so ours stays out of the way.
+local OTHER_TIPS = { "GameTooltip", "WorldMapTooltip", "WorldMapCompareTooltip1" }
+local function OtherTooltipShown()
+    for _, tipName in ipairs(OTHER_TIPS) do
+        local tip = _G[tipName]
+        if tip and tip ~= mapTip and tip:IsShown() then return true end
+    end
+    return false
+end
+
 local lastMapZone
 local function UpdateMapTip()
     local map = WorldMapFrame
     local scroll = map and map.ScrollContainer
-    if not (db and db.mapTip and map and map:IsShown() and scroll and scroll:IsMouseOver()) then
+    if not (db and db.mapTip and map and map:IsShown() and scroll and scroll:IsMouseOver())
+        or OtherTooltipShown() then
         if mapTip:IsShown() then mapTip:Hide() end
         lastMapZone = nil
         return

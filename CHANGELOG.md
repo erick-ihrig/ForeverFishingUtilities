@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+- Your Skill now shows your cap, like 140/225, and turns red when you're capped and can learn the next rank (not at 300, and not before you're high enough level).
+- The world map fishing tooltip now hides while the game or another addon (like Questie) is showing its own tooltip.
+
 ## 1.0.1
 - Fixed: swapping back to two identical weapons (e.g. two Copper Daggers) now fills the off-hand too. If you swap mid-fight, the off-hand follows as soon as combat ends.
 
