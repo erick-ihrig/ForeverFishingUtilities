@@ -1728,15 +1728,31 @@ local scanTip = CreateFrame("GameTooltip", "ForeverFishingUtilitiesScanTip", nil
 scanTip:SetOwner(WorldFrame, "ANCHOR_NONE")
 local FISHING_WORD = FishingName()
 
+-- Forever makes auras "secret" in combat (and maybe elsewhere): addon code
+-- that reads them then raises an error. Returns nil when they can't be read.
+local function AurasSecret()
+    if InCombatLockdown() then return true end
+    if C_Secrets and C_Secrets.ShouldAurasBeSecret and C_Secrets.ShouldAurasBeSecret() then
+        return true
+    end
+    return false
+end
+
+local function BuffName(i)
+    if C_UnitAuras and C_UnitAuras.GetBuffDataByIndex then
+        local ok, aura = pcall(C_UnitAuras.GetBuffDataByIndex, "player", i)
+        if not ok then return nil, true end
+        return aura and aura.name
+    elseif UnitBuff then
+        return UnitBuff("player", i)
+    end
+end
+
 local function HasFishingFoodBuff()
+    if AurasSecret() then return nil end
     for i = 1, 40 do
-        local name
-        if C_UnitAuras and C_UnitAuras.GetBuffDataByIndex then
-            local aura = C_UnitAuras.GetBuffDataByIndex("player", i)
-            name = aura and aura.name
-        elseif UnitBuff then
-            name = UnitBuff("player", i)
-        end
+        local name, failed = BuffName(i)
+        if failed then return nil end
         if not name then return false end
         scanTip:ClearLines()
         scanTip:SetUnitBuff("player", i)
@@ -1752,7 +1768,9 @@ end
 function UpdateGlows()
     local hasLure = HasPoleEquipped() and GetWeaponEnchantInfo() and true or false
     lureGlow:SetShown(hasLure)
-    foodGlow:SetShown(HasFishingFoodBuff())
+    -- While buffs can't be read, the food glow keeps its last state.
+    local hasFood = HasFishingFoodBuff()
+    if hasFood ~= nil then foodGlow:SetShown(hasFood) end
 end
 end
 

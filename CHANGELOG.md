@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- Fixed: Lua errors ("Auras cannot be accessed when secret") in combat. WoW: Forever hides buffs from addons during a fight, so the food button's glow now keeps its last state until the fight ends.
+
 ## 1.2.0
 - New: pulled into a fight with your fishing pole out, your weapons go on as combat starts, and the pole comes back when it ends (only if the pole was on when the fight began, and you didn't change weapons yourself). On by default; `/ffu combatswap`.
 - New: Minimum and Recommended correct themselves from your own fishing. Cast successfully below a zone's Minimum and it drops to your skill, rounded down to a 5; have a fish get away at or above Recommended and that goes up. The other number keeps its usual gap. Corrected numbers show a grey *. On by default; `/ffu learn`, and `/ffu learn reset` to go back to the listed values.
