@@ -10,4 +10,5 @@
 
 Data.lua
 Drops.lua
+Training.lua
 ForeverFishingUtilities.lua

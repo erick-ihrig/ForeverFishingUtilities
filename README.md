@@ -10,7 +10,8 @@ A small fishing companion for **World of Warcraft: Forever**. It shows the Fishi
 - **Double right-click to cast** (optional, off by default).
 - **Fishing sound mode** (optional, off by default). While fishing, music, ambience, dialog and pet sounds are muted and effects turned up so the splash stands out. Your settings come back afterwards.
 - **Best-lure button.** Applies the strongest lure in your bags that your skill can use.
-- **Pole / weapon swap.** One click or key swaps between your fishing pole and the weapons you had on, and it works in combat.
+- **Pole / weapon swap.** One click or key swaps between your fishing pole and the weapons you had on, and it works in combat. Pulled into a fight with the pole out? Your weapons go on automatically, and the pole comes back afterwards.
+- **Training help.** A book next to Your Skill shows how to learn the next Fishing rank: the closest trainer and the cost, the Expert book, or the Artisan quest.
 
 ## Install
 
@@ -29,6 +30,8 @@ A small fishing companion for **World of Warcraft: Forever**. It shows the Fishi
 | `/ffu reset` | Move the window back to its default spot, centred near the top of the screen |
 | `/ffu space` | Turn Space fishing on or off (same as the fishing icon) |
 | `/ffu dblclick` | Turn double right-click casting on or off |
+| `/ffu combatswap` | Swap to your weapons when combat starts, and back to the pole when it ends (on by default) |
+| `/ffu learn [reset]` | Correct Minimum/Recommended from your own casts and getaways (on by default); `reset` clears the corrections |
 | `/ffu jumpswap` | Jumping while moving with the pole out swaps back to your weapons (on by default) |
 | `/ffu map` | Turn the world map fishing info on or off (on by default) |
 | `/ffu sound [0-100]` | Turn fishing sound mode on or off, or set its volume |
@@ -53,6 +56,8 @@ Some technical details, for the curious:
 - Skill values are bundled in `Data.lua`, taken from the Classic-era zone tables, which WoW Forever guides match so far. Zones new to Forever have no published values yet. (Addons can't access the internet, so the data has to ship with the addon.)
 - Zone lookups use English zone names, so the addon currently works on **English (enUS) clients** only.
 - Catch lists and rates are bundled in `Drops.lua`, generated from the open-source cMaNGOS Classic database (github.com/cmangos/classic-db) by `tools/update_drops.py`, which also checks that source for changes. They cover open water only, not fishing pools, and they're Classic-era values that may differ on Forever.
+- Minimum and Recommended correct themselves from your own fishing: a successful cast below the Minimum lowers it, and a getaway at or above Recommended raises that (marked with a grey *).
+- Trainer locations, costs and requirements are in `Training.lua`, from WoW Forever trainer guides. The 10% discount at Honored follows the Classic rule.
 - The lure list uses the Classic lures. Lures added in Forever aren't included yet.
 
 ## Credits

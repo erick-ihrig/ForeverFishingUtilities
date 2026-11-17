@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+- New: pulled into a fight with your fishing pole out, your weapons go on as combat starts, and the pole comes back when it ends (only if the pole was on when the fight began, and you didn't change weapons yourself). On by default; `/ffu combatswap`.
+- New: Minimum and Recommended correct themselves from your own fishing. Cast successfully below a zone's Minimum and it drops to your skill, rounded down to a 5; have a fish get away at or above Recommended and that goes up. The other number keeps its usual gap. Corrected numbers show a grey *. On by default; `/ffu learn`, and `/ffu learn reset` to go back to the listed values.
+- New: a training book next to Your Skill. Hover it to see how to learn the next Fishing rank: the closest trainer and the cost (with your reputation discount), the Expert book in Booty Bay, or Nat Pagle's quest for Artisan. It's greyed out until you meet the level and skill needed.
+- The off-hand of two identical weapons is now filled straight away, even in combat, instead of waiting for combat to end.
+
 ## 1.1.0
 - New: hover the zone name to see what you can catch there, with icons, names and catch rates. The list is as wide as the window and opens above or below it (`/ffu catches smart|up|down`; smart opens away from the nearer screen edge). Classic items that WoW Forever doesn't have are left out.
 - New: on the world map, hold Shift while hovering a zone to add its catches to the fishing tooltip.
