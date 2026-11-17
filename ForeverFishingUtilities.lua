@@ -33,7 +33,7 @@ local DEFAULTS = {
     volume = 1,           -- master volume while fishing
     dropTip = true,       -- list of catches when hovering the zone name
     flyout = "smart",     -- where that list opens: "smart", "up" or "down"
-    moving = "swap",      -- jump while moving with the pole out: "swap" to weapons, or just "jump"
+    moving = "jump",      -- jump while moving with the pole out: just "jump", or "swap" to weapons
     showSpace = true,     -- which buttons the window shows
     showSound = true,
     showSwap = true,
@@ -189,6 +189,36 @@ lineSkill:SetJustifyH("LEFT")
 lineSkill:SetWordWrap(false)
 
 line2:SetWordWrap(false)
+
+-- Which way lists and tooltips open from the window: db.flyout, where
+-- "smart" opens away from whichever of the top and bottom screen edges is nearer.
+local function FlyoutDirection()
+    local dir = db and db.flyout
+    if dir == "up" or dir == "down" then return dir end
+    local _, y = frame:GetCenter()
+    local scale = frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
+    return (y and y * scale > UIParent:GetHeight() / 2) and "down" or "up"
+end
+
+-- The window's button tooltips sit against the window, where the catches
+-- list opens, and are at least as wide as it.
+local function WindowTip()
+    local tip = GameTooltip
+    tip:SetOwner(frame, "ANCHOR_NONE")
+    tip:ClearAllPoints()
+    if FlyoutDirection() == "down" then
+        tip:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, -2)
+    else
+        tip:SetPoint("BOTTOMLEFT", frame, "TOPLEFT", 0, 2)
+    end
+    if tip.SetMinimumWidth then tip:SetMinimumWidth(frame:GetWidth()) end
+    return tip
+end
+
+local function HideWindowTip()
+    GameTooltip:Hide()
+    if GameTooltip.SetMinimumWidth then GameTooltip:SetMinimumWidth(0) end
+end
 
 -- Training book just right of "Your Skill": hover it for how to learn the
 -- next Fishing rank. Greyed until you meet that rank's requirements.
@@ -361,7 +391,7 @@ end
 
 trainIcon:SetScript("OnEnter", function(self)
     local tip = GameTooltip
-    tip:SetOwner(self, "ANCHOR_RIGHT")
+    WindowTip()
     local r, skill = NextRank()
     if not r then
         tip:SetText("Fishing training")
@@ -403,7 +433,7 @@ trainIcon:SetScript("OnEnter", function(self)
     tip:AddLine("Ctrl-click to pin this place on your map.", 0.5, 0.5, 0.5, true)
     tip:Show()
 end)
-trainIcon:SetScript("OnLeave", function() GameTooltip:Hide() end)
+trainIcon:SetScript("OnLeave", HideWindowTip)
 
 -- Where the next rank is learned: { name, map, x, y } or nil.
 local function TrainingSpot()
@@ -636,13 +666,7 @@ local function FillFlyout()
 end
 
 local function PlaceFlyout()
-    local dir = db.flyout
-    if dir ~= "up" and dir ~= "down" then
-        -- Smart: open away from whichever of the top and bottom screen edges is nearer.
-        local _, y = frame:GetCenter()
-        local scale = frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
-        dir = (y and y * scale > UIParent:GetHeight() / 2) and "down" or "up"
-    end
+    local dir = FlyoutDirection()
     flyout:ClearAllPoints()
     if dir == "down" then
         flyout:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, -2)
@@ -1066,7 +1090,7 @@ local function MakeToggle(texture, xOffset, atlas)
         icon:SetAlpha(on and 1 or 0.6)
         glow:SetShown(on and true or false)
     end
-    button:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    button:SetScript("OnLeave", HideWindowTip)
     return button
 end
 
@@ -1091,7 +1115,7 @@ soundButton:SetScript("OnClick", function()
     SetSound(not db.sound)
 end)
 soundButton:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+    WindowTip()
     if db.sound then
         GameTooltip:SetText("Fishing sound: on")
         GameTooltip:AddLine("While fishing, music, ambience, dialog and pet sounds are off and effects are loud (master " ..
@@ -1118,7 +1142,7 @@ end
 
 spaceButton:SetScript("OnClick", ToggleSpace)
 spaceButton:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+    WindowTip()
     if db.spaceOn then
         GameTooltip:SetText("Space fishing: on")
         GameTooltip:AddLine("With a fishing pole equipped, Space casts and clicks the bobber. Without one, or in combat, Space jumps. Click to turn off.", 1, 1, 1, true)
@@ -1224,12 +1248,11 @@ local function UpdateLure()
 end
 
 lureButton:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+    WindowTip()
     local lure = currentLure
     if lure then
         GameTooltip:SetText(ItemName(lure.id) or "Lure")
         GameTooltip:AddLine("+" .. lure.bonus .. " Fishing  ·  " .. ItemCount(lure.id) .. " in bags", 1, 1, 1)
-        GameTooltip:AddLine("Click to put it on your fishing pole.", 0.8, 0.8, 0.8, true)
     else
         GameTooltip:SetText("No usable lure")
         GameTooltip:AddLine("No lure in your bags that your Fishing skill can use.", 0.8, 0.8, 0.8, true)
@@ -1241,7 +1264,7 @@ lureButton:SetScript("OnEnter", function(self)
     end
     GameTooltip:Show()
 end)
-lureButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
+lureButton:SetScript("OnLeave", HideWindowTip)
 
 ---------------------------------------------------------------------------
 -- Food button
@@ -1310,19 +1333,18 @@ local function UpdateFood()
 end
 
 foodButton:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+    WindowTip()
     local food = currentFood
     if food then
         GameTooltip:SetText(ItemName(food.id) or "Fishing food")
         GameTooltip:AddLine("+" .. food.bonus .. " Fishing  ·  " .. ItemCount(food.id) .. " in bags", 1, 1, 1)
-        GameTooltip:AddLine("Click to eat it. Stay seated for 10 seconds to become Well Fed.", 0.8, 0.8, 0.8, true)
     else
         GameTooltip:SetText("No Fishing food")
         GameTooltip:AddLine("None in your bags that you can eat. Fish dishes that give Fishing skill: Loch Frenzy Delight, Fillet of Frenzy, Bristle Whisker Catfish, Rockscale Cod, Filet of Redgill and Spinefin Halibut.", 0.8, 0.8, 0.8, true)
     end
     GameTooltip:Show()
 end)
-foodButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
+foodButton:SetScript("OnLeave", HideWindowTip)
 
 ---------------------------------------------------------------------------
 -- Pole / weapon swap button
@@ -1649,7 +1671,7 @@ local function RecordGear()
 end
 
 swapButton:SetScript("OnEnter", function(self)
-    GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+    WindowTip()
     local data = CharData()
     if HasPoleEquipped() then
         local w = data.weapons
@@ -1674,7 +1696,7 @@ swapButton:SetScript("OnEnter", function(self)
     GameTooltip:AddLine("Works in combat. Keybind: Key Bindings > Forever Fishing Utilities.", 0.6, 0.6, 0.6, true)
     GameTooltip:Show()
 end)
-swapButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
+swapButton:SetScript("OnLeave", HideWindowTip)
 
 ---------------------------------------------------------------------------
 -- Button layout
@@ -1767,8 +1789,12 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
             db.optInDefaults = true
         end
         -- 1.2: the jump-swap on/off became a choice: swap, or just jump.
-        if db.jumpSwap == false then db.moving = "jump" end
         db.jumpSwap = nil
+        -- "Just jumps" became the default; switch existing setups over once.
+        if not db.movingJumpDefault then
+            db.moving = "jump"
+            db.movingJumpDefault = true
+        end
         db.custom, db.stats, db.showStats, db.statsLineRemoved = nil, nil, nil, nil
         db.swapKey, db.mapInfo, db.doubleClickSpeed = nil, nil, nil
         self:ClearAllPoints()
@@ -2008,7 +2034,7 @@ do
     moveLabel:SetText("Jump while moving with the pole out:")
     local function Moving(label, hint, value, anchor, x)
         local cb = PanelCheck(label, hint, moveLabel,
-            function() return (db.moving or "swap") == value end,
+            function() return (db.moving or "jump") == value end,
             function() db.moving = value; UpdateKeys() end)
         cb:ClearAllPoints()
         cb:SetPoint("LEFT", anchor, "RIGHT", x, 0)
@@ -2178,7 +2204,7 @@ SlashCmdList.FOREVERFISHINGUTILITIES = function(msg)
         print("  |cffffd100/ffu reset|r  move the window back to its default spot (centred near the top of the screen)")
         print("  |cffffd100/ffu space|r  Space casts and clicks the bobber (" .. OnOff(db.spaceOn) .. ")")
         print("  |cffffd100/ffu dblclick|r  double right-click to cast (" .. OnOff(db.doubleClick) .. ")")
-        print("  |cffffd100/ffu moving [swap|jump]|r  what jumping while moving with the pole out does (" .. (db.moving or "swap") .. ")")
+        print("  |cffffd100/ffu moving [swap|jump]|r  what jumping while moving with the pole out does (" .. (db.moving or "jump") .. ")")
         print("  |cffffd100/ffu combatswap|r  swap to weapons when combat starts, back to the pole after (" .. OnOff(db.combatSwap) .. ")")
         print("  |cffffd100/ffu learn [reset]|r  correct Minimum/Recommended from your casts and getaways (" .. OnOff(db.learn) .. ")")
         print("  |cffffd100/ffu map|r  fishing info when hovering zones on the world map (" .. OnOff(db.mapTip) .. ")")

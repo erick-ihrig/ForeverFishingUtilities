@@ -33,7 +33,7 @@ A small fishing companion for **World of Warcraft: Forever**. It shows the Fishi
 | `/ffu dblclick` | Turn double right-click casting on or off |
 | `/ffu combatswap` | Swap to your weapons when combat starts, and back to the pole when it ends (on by default) |
 | `/ffu learn [reset]` | Correct Minimum/Recommended from your own casts and getaways (on by default); `reset` clears the corrections |
-| `/ffu moving [swap\|jump]` | What jumping while moving with the pole out does: swap to your weapons (default) or just jump |
+| `/ffu moving [swap\|jump]` | What Space does while moving with the pole out: just jump (default) or swap to your weapons |
 | `/ffu map` | Turn the world map fishing info on or off (on by default) |
 | `/ffu sound [0-100]` | Turn fishing sound mode on or off, or set its volume |
 | `/ffu catches [smart\|up\|down]` | Turn the catches list (hover the zone name) on or off, or choose where it opens |
