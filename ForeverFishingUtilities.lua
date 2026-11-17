@@ -298,6 +298,8 @@ end
 -- Training: the book next to Your Skill
 ---------------------------------------------------------------------------
 
+local UpdateTrainIcon
+do
 -- The next rank to learn, or nil at the top rank.
 local function NextRank()
     local rank, _, maxRank = GetFishingSkill()
@@ -490,11 +492,12 @@ trainIcon:SetScript("OnClick", function()
     if spot then PinSpot(spot) end
 end)
 
-local function UpdateTrainIcon()
+function UpdateTrainIcon()
     local r, skill = NextRank()
     local ready = r and RankReady(r, skill)
     trainTex:SetDesaturated(not ready)
     trainTex:SetAlpha(ready and 1 or 0.6)
+end
 end
 
 local function Refresh()
@@ -1699,6 +1702,61 @@ end)
 swapButton:SetScript("OnLeave", HideWindowTip)
 
 ---------------------------------------------------------------------------
+-- Buff glow on the lure and food buttons
+---------------------------------------------------------------------------
+-- The same green border the toggles use, shown while the buff is up: a lure
+-- on the fishing pole, or a Well Fed buff that adds Fishing skill.
+
+local UpdateGlows
+do
+local function AddGlow(button)
+    local glow = button:CreateTexture(nil, "OVERLAY")
+    glow:SetPoint("TOPLEFT", -2, 2)
+    glow:SetPoint("BOTTOMRIGHT", 2, -2)
+    glow:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
+    glow:SetBlendMode("ADD")
+    glow:SetVertexColor(0.3, 1, 0.3)
+    glow:SetTexCoord(0.2, 0.8, 0.2, 0.8)
+    glow:Hide()
+    return glow
+end
+local lureGlow = AddGlow(lureButton)
+local foodGlow = AddGlow(foodButton)
+
+-- Reads buff tooltips to find one that mentions Fishing.
+local scanTip = CreateFrame("GameTooltip", "ForeverFishingUtilitiesScanTip", nil, "GameTooltipTemplate")
+scanTip:SetOwner(WorldFrame, "ANCHOR_NONE")
+local FISHING_WORD = FishingName()
+
+local function HasFishingFoodBuff()
+    for i = 1, 40 do
+        local name
+        if C_UnitAuras and C_UnitAuras.GetBuffDataByIndex then
+            local aura = C_UnitAuras.GetBuffDataByIndex("player", i)
+            name = aura and aura.name
+        elseif UnitBuff then
+            name = UnitBuff("player", i)
+        end
+        if not name then return false end
+        scanTip:ClearLines()
+        scanTip:SetUnitBuff("player", i)
+        for line = 2, scanTip:NumLines() or 0 do
+            local fs = _G["ForeverFishingUtilitiesScanTipTextLeft" .. line]
+            local text = fs and fs:GetText()
+            if text and text:find(FISHING_WORD, 1, true) then return true end
+        end
+    end
+    return false
+end
+
+function UpdateGlows()
+    local hasLure = HasPoleEquipped() and GetWeaponEnchantInfo() and true or false
+    lureGlow:SetShown(hasLure)
+    foodGlow:SetShown(HasFishingFoodBuff())
+end
+end
+
+---------------------------------------------------------------------------
 -- Button layout
 ---------------------------------------------------------------------------
 -- Each button can be hidden in the options. The ones that show close up
@@ -1728,7 +1786,7 @@ local function LayoutButtons()
         return n
     end
     topCount = Place({ { swapButton, "showSwap" }, { spaceButton, "showSpace" }, { soundButton, "showSound" } }, "TOPRIGHT", -4)
-    bottomCount = Place({ { lureButton, "showLure" }, { foodButton, "showFood" } }, "BOTTOMRIGHT", 4)
+    bottomCount = Place({ { lureButton, "showLure" }, { foodButton, "showFood" } }, "BOTTOMRIGHT", 7)
     line1:SetPoint("TOPRIGHT", -(topCount > 0 and (6 + 20 * topCount) or 8), -7)
     bookShown = db.showBook and true or false
     trainIcon:SetShown(bookShown)
@@ -1756,6 +1814,8 @@ frame:RegisterEvent("GLOBAL_MOUSE_DOWN")
 frame:RegisterEvent("GLOBAL_MOUSE_UP")
 frame:RegisterEvent("UI_ERROR_MESSAGE")
 frame:RegisterEvent("PLAYER_LEVEL_UP")
+frame:RegisterUnitEvent("UNIT_AURA", "player")
+frame:RegisterUnitEvent("UNIT_INVENTORY_CHANGED", "player")
 frame:RegisterEvent("PLAYER_STARTED_MOVING")
 frame:RegisterEvent("PLAYER_STOPPED_MOVING")
 frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "player")
@@ -1801,7 +1861,10 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
         local p = db.point
         self:SetPoint(p[1], UIParent, p[3], p[4], p[5])
         -- Lures and their expiry don't fire a reliable event, so check every second.
-        C_Timer.NewTicker(1, Refresh)
+        C_Timer.NewTicker(1, function()
+            Refresh()
+            UpdateGlows()
+        end)
         RegisterOptions()
         self:UnregisterEvent("ADDON_LOADED")
         return
@@ -1849,6 +1912,9 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
         return
     elseif event == "SKILL_LINES_CHANGED" or event == "CHAT_MSG_SKILL" then
         UpdateLure()
+    elseif event == "UNIT_AURA" or event == "UNIT_INVENTORY_CHANGED" then
+        UpdateGlows()
+        return
     elseif event == "PLAYER_LEVEL_UP" then
         C_Timer.After(0.5, UpdateFood)
     elseif event == "PLAYER_ENTERING_WORLD" then

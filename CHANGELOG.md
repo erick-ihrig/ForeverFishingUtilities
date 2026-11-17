@@ -8,6 +8,8 @@
 - New: every button can be hidden in the options (Space toggle, sound toggle, swap, lure, food, training book). The rest close up.
 - Changed: with the pole out, Space now just jumps while you're moving, and casts when you're standing still. The old behaviour (jumping on the move swaps to your weapons) is still an option: `/ffu moving swap`, or in the options. `/ffu moving swap|jump` replaces `/ffu jumpswap`.
 - The window's button tooltips now open against the window, on the same side as the catches list.
+- The lure and food buttons glow while their buff is up (a lure on your pole, or Well Fed with a Fishing bonus).
+- The lure and food buttons sit a little higher, clear of the window's border.
 - The pole/weapon swap button moved to the top-right corner, at the far right of the two toggles.
 - Your Skill only turns red when you're capped and can learn the next rank now; capped but not high enough level stays white.
 - In water with no listed numbers (like Forever's new zones), your casts and getaways now give a rough Minimum ("90 or less") and Recommended ("125+").
