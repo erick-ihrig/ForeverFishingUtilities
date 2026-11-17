@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.1
 - Fixed: Lua errors ("Auras cannot be accessed when secret") in combat. WoW: Forever hides buffs from addons during a fight, so the food button's glow now keeps its last state until the fight ends.
 
 ## 1.2.0
