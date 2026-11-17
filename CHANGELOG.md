@@ -7,7 +7,7 @@
 - New: a food button next to the lure button. It eats the best food in your bags that gives Fishing skill (WoW: Forever added a Fishing bonus to six fish dishes).
 - New: choose what jumping while moving with the pole out does: swap to your weapons (as before), or just jump. With "just jump", Space jumps while you're moving and casts when you're standing still. `/ffu moving swap|jump` replaces `/ffu jumpswap`.
 - New: every button can be hidden in the options (Space toggle, sound toggle, swap, lure, food, training book). The rest close up.
-- The pole/weapon swap button moved to the top-right corner, next to the toggles.
+- The pole/weapon swap button moved to the top-right corner, at the far right of the two toggles.
 - Your Skill only turns red when you're capped and can learn the next rank now; capped but not high enough level stays white.
 - In water with no listed numbers (like Forever's new zones), your casts and getaways now give a rough Minimum ("90 or less") and Recommended ("125+").
 - The off-hand of two identical weapons is now filled straight away, even in combat, instead of waiting for combat to end.

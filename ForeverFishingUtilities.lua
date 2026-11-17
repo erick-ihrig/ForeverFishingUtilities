@@ -1680,7 +1680,7 @@ swapButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
 -- Button layout
 ---------------------------------------------------------------------------
 -- Each button can be hidden in the options. The ones that show close up
--- from the right: top row Space, sound, swap; bottom row lure, food. Some are
+-- from the right: top row swap, Space, sound; bottom row lure, food. Some are
 -- secure buttons, so this only runs out of combat.
 
 local layoutPending = false
@@ -1705,7 +1705,7 @@ local function LayoutButtons()
         end
         return n
     end
-    topCount = Place({ { spaceButton, "showSpace" }, { soundButton, "showSound" }, { swapButton, "showSwap" } }, "TOPRIGHT", -4)
+    topCount = Place({ { swapButton, "showSwap" }, { spaceButton, "showSpace" }, { soundButton, "showSound" } }, "TOPRIGHT", -4)
     bottomCount = Place({ { lureButton, "showLure" }, { foodButton, "showFood" } }, "BOTTOMRIGHT", 4)
     line1:SetPoint("TOPRIGHT", -(topCount > 0 and (6 + 20 * topCount) or 8), -7)
     bookShown = db.showBook and true or false
