@@ -10,8 +10,9 @@ A small fishing companion for **World of Warcraft: Forever**. It shows the Fishi
 - **Double right-click to cast** (optional, off by default).
 - **Fishing sound mode** (optional, off by default). While fishing, music, ambience, dialog and pet sounds are muted and effects turned up so the splash stands out. Your settings come back afterwards.
 - **Best-lure button.** Applies the strongest lure in your bags that your skill can use.
+- **Fishing food button.** Eats the best food in your bags that gives Fishing skill.
 - **Pole / weapon swap.** One click or key swaps between your fishing pole and the weapons you had on, and it works in combat. Pulled into a fight with the pole out? Your weapons go on automatically, and the pole comes back afterwards.
-- **Training help.** A book next to Your Skill shows how to learn the next Fishing rank: the closest trainer and the cost, the Expert book, or the Artisan quest.
+- **Training help.** A book next to Your Skill shows how to learn the next Fishing rank: the closest trainer and the cost, the Expert book, or the Artisan quest. Ctrl-click it for a map pin.
 
 ## Install
 
@@ -32,7 +33,7 @@ A small fishing companion for **World of Warcraft: Forever**. It shows the Fishi
 | `/ffu dblclick` | Turn double right-click casting on or off |
 | `/ffu combatswap` | Swap to your weapons when combat starts, and back to the pole when it ends (on by default) |
 | `/ffu learn [reset]` | Correct Minimum/Recommended from your own casts and getaways (on by default); `reset` clears the corrections |
-| `/ffu jumpswap` | Jumping while moving with the pole out swaps back to your weapons (on by default) |
+| `/ffu moving [swap\|jump]` | What jumping while moving with the pole out does: swap to your weapons (default) or just jump |
 | `/ffu map` | Turn the world map fishing info on or off (on by default) |
 | `/ffu sound [0-100]` | Turn fishing sound mode on or off, or set its volume |
 | `/ffu catches [smart\|up\|down]` | Turn the catches list (hover the zone name) on or off, or choose where it opens |

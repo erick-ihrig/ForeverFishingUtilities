@@ -33,7 +33,13 @@ local DEFAULTS = {
     volume = 1,           -- master volume while fishing
     dropTip = true,       -- list of catches when hovering the zone name
     flyout = "smart",     -- where that list opens: "smart", "up" or "down"
-    jumpSwap = true,      -- jumping while moving with the pole out swaps back to weapons
+    moving = "swap",      -- jump while moving with the pole out: "swap" to weapons, or just "jump"
+    showSpace = true,     -- which buttons the window shows
+    showSound = true,
+    showSwap = true,
+    showLure = true,
+    showFood = true,
+    showBook = true,
     combatSwap = true,    -- entering combat with the pole out swaps to weapons, and back after
     learn = true,         -- adjust Minimum/Recommended from your own casts and getaways
 }
@@ -103,8 +109,14 @@ end
 -- at or above the listed Recommended raises that. A value that hasn't been
 -- corrected keeps the original gap to the one that has.
 local function Effective(entry, key)
-    local learned = entry and key and db and db.learn and db.learned and db.learned[key]
+    local learned = key and db and db.learn and db.learned and db.learned[key]
     if not learned then return entry end
+    if not entry then
+        -- No listed numbers here: show what your own fishing has shown.
+        if not (learned.min or learned.full) then return nil end
+        return { min = learned.min, full = learned.full, guessed = true,
+            learnedMin = learned.min ~= nil, learnedFull = learned.full ~= nil }
+    end
     local gap = entry.full - entry.min
     local min, full = entry.min, entry.full
     if learned.min and learned.full then
@@ -188,27 +200,32 @@ trainTex:SetAllPoints()
 trainTex:SetTexture("Interface\\Icons\\INV_Misc_Book_09")
 trainTex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
+-- How many buttons sit in the top-right and bottom-right corners, and
+-- whether the training book shows (set by LayoutButtons).
+local topCount, bottomCount, bookShown = 3, 2, true
+
 -- Sizes the window to fit its lines.
 local function Fit(lines)
     local w = 160
+    local line1Room = 10 + 6 + 20 * topCount
+    local skillRoom = 14 + 20 * bottomCount + (bookShown and 18 or 0)
     for _, fs in ipairs(lines) do
-        w = math.max(w, fs:GetStringWidth() + ((fs == line1 and 56) or (fs == lineSkill and 72) or 18))
+        w = math.max(w, fs:GetStringWidth() + ((fs == line1 and line1Room) or (fs == lineSkill and skillRoom) or 18))
     end
     frame:SetWidth(w)
     frame:SetHeight(20 + 14 * #lines) -- a little extra so the corner buttons clear line 2
 end
 
--- Character level needed to learn the next Fishing rank, by current cap.
-local NEXT_RANK_LEVEL = { [75] = 10, [150] = 20, [225] = 35 }
-local SKILL_MAX = 300
-
--- True when skill is stuck at its cap and the next rank can be learned now.
+-- True when skill is stuck at its cap AND the next rank can be learned now
+-- (level and skill met). Capped but not able to train yet stays white.
 local function NeedsNextRank(rank, maxRank)
     if not maxRank or maxRank <= 0 or rank < maxRank then return false end
-    if maxRank >= SKILL_MAX then return false end
-    local needLevel = NEXT_RANK_LEVEL[maxRank]
-    if needLevel and UnitLevel("player") < needLevel then return false end
-    return true
+    for _, r in ipairs(ns.RANKS) do
+        if r.from == maxRank then
+            return UnitLevel("player") >= r.level and rank >= r.skill
+        end
+    end
+    return false -- top rank
 end
 
 -- "Your Skill: 140/225", red when capped and the next rank is learnable.
@@ -231,9 +248,20 @@ end
 -- "Minimum: 55   Recommended: 150" in orange and yellow.
 -- A grey * marks a number corrected by your own fishing.
 local LEARNED_MARK = COLOR.grey .. "*|r"
+-- In water with no listed numbers, your fishing only gives limits: a cast
+-- that landed means the Minimum is at most that; a getaway means
+-- Recommended is at least the next 5 up.
+local function MinText(e)
+    if not e.min then return "?" end
+    return (e.guessed and (e.min .. " or less") or e.min) .. "|r" .. (e.learnedMin and LEARNED_MARK or "")
+end
+local function FullText(e)
+    if not e.full then return "?" end
+    return (e.guessed and (e.full .. "+") or e.full) .. "|r" .. (e.learnedFull and LEARNED_MARK or "")
+end
 local function Thresholds(entry)
-    return COLOR.orange .. "Minimum: " .. entry.min .. "|r" .. (entry.learnedMin and LEARNED_MARK or "") .. "   " ..
-        COLOR.yellow .. "Recommended: " .. entry.full .. "|r" .. (entry.learnedFull and LEARNED_MARK or "")
+    return COLOR.orange .. "Minimum: " .. MinText(entry) .. "   " ..
+        COLOR.yellow .. "Recommended: " .. FullText(entry)
 end
 
 ---------------------------------------------------------------------------
@@ -268,10 +296,15 @@ local function Discounted(cost, repID)
     return cost, nil
 end
 
+-- Gold, silver and copper with the little coin icons.
+local COIN = "|TInterface\\MoneyFrame\\UI-%sIcon:0:0:2:0|t"
 local function Money(copper)
-    if GetCoinTextureString then return GetCoinTextureString(copper) end
     local g, s, c = math.floor(copper / 10000), math.floor(copper / 100) % 100, copper % 100
-    return (g > 0 and (g .. "g ") or "") .. (s > 0 and (s .. "s ") or "") .. ((c > 0 or copper == 0) and (c .. "c") or "")
+    local parts = {}
+    if g > 0 then parts[#parts + 1] = g .. COIN:format("Gold") end
+    if s > 0 then parts[#parts + 1] = s .. COIN:format("Silver") end
+    if c > 0 or #parts == 0 then parts[#parts + 1] = c .. COIN:format("Copper") end
+    return table.concat(parts, " ")
 end
 
 local function MapName(mapID)
@@ -319,9 +352,7 @@ local function Requirement(tip, label, have, need)
 end
 
 local function AddCost(tip, cost, repID)
-    local price, repName = Discounted(cost, repID)
-    tip:AddDoubleLine("Cost", Money(price), 0.8, 0.8, 0.8, 1, 1, 1)
-    if repName then tip:AddLine("Includes 10% off for Honored with " .. repName .. ".", 0.5, 0.5, 0.5, true) end
+    tip:AddDoubleLine("Cost", Money((Discounted(cost, repID))), 0.8, 0.8, 0.8, 1, 1, 1)
 end
 
 local function Where(tip, place, mapID, x, y)
@@ -338,7 +369,6 @@ trainIcon:SetScript("OnEnter", function(self)
         tip:Show()
         return
     end
-    local ready = RankReady(r, skill)
     tip:SetText((r.from and "Next rank: " or "Learn Fishing: ") .. r.name .. " Fishing")
     tip:AddLine(r.from and ("Raises your skill cap to " .. r.cap .. ".") or "Lets you fish, up to skill 75.", 0.8, 0.8, 0.8, true)
     tip:AddLine(" ")
@@ -369,13 +399,66 @@ trainIcon:SetScript("OnEnter", function(self)
         tip:AddLine("From " .. q.giver, 1, 0.82, 0)
         Where(tip, q.place, q.map, q.x, q.y)
     end
-    if not ready then
-        tip:AddLine(" ")
-        tip:AddLine("Not available yet.", 1, 0.25, 0.25)
-    end
+    tip:AddLine(" ")
+    tip:AddLine("Ctrl-click to pin this place on your map.", 0.5, 0.5, 0.5, true)
     tip:Show()
 end)
 trainIcon:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+-- Where the next rank is learned: { name, map, x, y } or nil.
+local function TrainingSpot()
+    local r = NextRank()
+    if not r then return nil end
+    if r.how == "trainer" then
+        local t = NearestTrainer()
+        return t and { name = t.name, map = t.map, x = t.x, y = t.y }
+    elseif r.how == "book" then
+        local b = ns.EXPERT_BOOK
+        return { name = b.seller, map = b.map, x = b.x, y = b.y }
+    else
+        local q = ns.ARTISAN_QUEST
+        return { name = q.giver, map = q.map, x = q.x, y = q.y }
+    end
+end
+
+-- The game's own map pin if this client has it, else TomTom, else /mappin.
+local function SlashFor(command)
+    for key in pairs(SlashCmdList) do
+        for i = 1, 5 do
+            local alias = _G["SLASH_" .. key .. i]
+            if type(alias) ~= "string" then break end
+            if alias:lower() == command then return SlashCmdList[key] end
+        end
+    end
+end
+
+local function PinSpot(spot)
+    local where = string.format("%s (%.1f, %.1f)", MapName(spot.map) or "", spot.x, spot.y)
+    if C_Map and C_Map.SetUserWaypoint and UiMapPoint and UiMapPoint.CreateFromCoordinates
+        and (not C_Map.CanSetUserWaypointOnMap or C_Map.CanSetUserWaypointOnMap(spot.map)) then
+        C_Map.SetUserWaypoint(UiMapPoint.CreateFromCoordinates(spot.map, spot.x / 100, spot.y / 100))
+        if C_SuperTrack and C_SuperTrack.SetSuperTrackedUserWaypoint then
+            C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+        end
+    elseif TomTom and TomTom.AddWaypoint then
+        TomTom:AddWaypoint(spot.map, spot.x / 100, spot.y / 100, { title = spot.name })
+    else
+        local mappin = SlashFor("/mappin")
+        if not mappin then
+            print("|cff40c0ffForever Fishing Utilities:|r " .. spot.name .. " is at " .. where .. ".")
+            return
+        end
+        mappin(string.format("%d %.1f %.1f", spot.map, spot.x, spot.y))
+    end
+    print("|cff40c0ffForever Fishing Utilities:|r map pin set on " .. spot.name .. ", " .. where .. ".")
+end
+
+trainIcon:RegisterForClicks("LeftButtonUp")
+trainIcon:SetScript("OnClick", function()
+    if not IsControlKeyDown() then return end
+    local spot = TrainingSpot()
+    if spot then PinSpot(spot) end
+end)
 
 local function UpdateTrainIcon()
     local r, skill = NextRank()
@@ -405,6 +488,7 @@ local function Refresh()
 
     if entry then
         local note = (matched == sub and sub ~= "") and (COLOR.grey .. "  (subzone)|r") or ""
+        if entry.guessed then note = COLOR.grey .. "  (from your fishing)|r" end
         line2:SetText(Thresholds(entry) .. note)
     else
         line2:SetText(COLOR.grey .. "No fishing data for this zone yet|r")
@@ -613,9 +697,8 @@ local function AddZoneLines(name)
     for subName, parent in pairs(ns.SUBZONE_PARENT) do
         local subEntry = Effective(ns.SUBZONES[subName], subName)
         if parent == name and subEntry then
-            mapTip:AddLine(COLOR.grey .. subName .. ":|r " .. COLOR.orange .. subEntry.min ..
-                "|r" .. (subEntry.learnedMin and LEARNED_MARK or "") .. " / " .. COLOR.yellow ..
-                subEntry.full .. "|r" .. (subEntry.learnedFull and LEARNED_MARK or ""))
+            mapTip:AddLine(COLOR.grey .. subName .. ":|r " .. COLOR.orange .. MinText(subEntry) ..
+                " / " .. COLOR.yellow .. FullText(subEntry))
             added = true
         end
     end
@@ -656,7 +739,8 @@ local function UpdateMapTip()
         local info = C_Map.GetMapInfo(mapID)
         name = info and info.name
     end
-    if not name or not (ns.ZONES[name] or ns.SUBZONE_PARENT[name]) then
+    local ownNumbers = name and db.learn and db.learned and db.learned[name]
+    if not name or not (ns.ZONES[name] or ns.SUBZONE_PARENT[name] or ownNumbers) then
         if mapTip:IsShown() then mapTip:Hide() end
         lastMapZone = nil
         return
@@ -796,8 +880,12 @@ local function UpdateKeys()
     if not HasPoleEquipped() then return end
     local jumpKeys = { SPACE = true }
     for _, key in ipairs({ GetBindingKey("JUMP") }) do jumpKeys[key] = true end
+    -- "Just jump" while moving: leave jump keys alone until you stop.
+    local moving = db.moving == "jump" and IsPlayerMoving and IsPlayerMoving()
     for _, key in ipairs(FishingKeys()) do
-        if fishingActive then
+        if moving and jumpKeys[key] and not fishingActive then
+            -- (no override: the key jumps as usual)
+        elseif fishingActive then
             SetOverrideBinding(keyOwner, true, key, "INTERACTTARGET")
         else
             -- Jump keys click as "Jump" so the button can tell them apart.
@@ -1156,6 +1244,87 @@ end)
 lureButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
 ---------------------------------------------------------------------------
+-- Food button
+---------------------------------------------------------------------------
+-- WoW: Forever gave six fish dishes a Fishing bonus once you're Well Fed
+-- (eat for 10 seconds). Picks the biggest bonus you can eat that's in your
+-- bags. Like the lure button, its target only changes out of combat.
+
+local FOODS = { -- best first
+    { id = 13930, bonus = 18, level = 35 }, -- Filet of Redgill
+    { id = 8957,  bonus = 18, level = 45 }, -- Spinefin Halibut
+    { id = 4594,  bonus = 12, level = 25 }, -- Rockscale Cod
+    { id = 4593,  bonus = 8,  level = 15 }, -- Bristle Whisker Catfish
+    { id = 5476,  bonus = 5,  level = 5  }, -- Fillet of Frenzy
+    { id = 6316,  bonus = 3,  level = 5  }, -- Loch Frenzy Delight
+}
+
+local function BestFood()
+    local level = UnitLevel("player") or 1
+    for _, food in ipairs(FOODS) do
+        if level >= food.level and ItemCount(food.id) > 0 then return food end
+    end
+end
+
+local foodButton = CreateFrame("Button", "ForeverFishingUtilitiesFoodButton", frame, "SecureActionButtonTemplate")
+foodButton:SetSize(16, 16)
+foodButton:RegisterForClicks("AnyUp", "AnyDown")
+local foodIcon = foodButton:CreateTexture(nil, "ARTWORK")
+foodIcon:SetAllPoints()
+foodIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+local foodCount = foodButton:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
+foodCount:SetPoint("BOTTOMRIGHT", 3, -2)
+foodButton:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+
+local currentFood
+local foodPending = false
+
+local function UpdateFood()
+    if not db then return end
+    local food = BestFood()
+    currentFood = food
+    if food then
+        foodIcon:SetTexture(ItemIcon(food.id))
+        foodIcon:SetDesaturated(false)
+        foodIcon:SetAlpha(1)
+        local n = ItemCount(food.id)
+        foodCount:SetText(n > 1 and n or "")
+    else
+        foodIcon:SetTexture(ItemIcon(5476) or "Interface\\Icons\\INV_Misc_Fish_31")
+        foodIcon:SetDesaturated(true)
+        foodIcon:SetAlpha(0.5)
+        foodCount:SetText("")
+    end
+    if InCombatLockdown() then
+        foodPending = true
+        return
+    end
+    foodPending = false
+    if food then
+        foodButton:SetAttribute("type", "macro")
+        foodButton:SetAttribute("macrotext", "/use item:" .. food.id)
+    else
+        foodButton:SetAttribute("type", nil)
+        foodButton:SetAttribute("macrotext", nil)
+    end
+end
+
+foodButton:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+    local food = currentFood
+    if food then
+        GameTooltip:SetText(ItemName(food.id) or "Fishing food")
+        GameTooltip:AddLine("+" .. food.bonus .. " Fishing  ·  " .. ItemCount(food.id) .. " in bags", 1, 1, 1)
+        GameTooltip:AddLine("Click to eat it. Stay seated for 10 seconds to become Well Fed.", 0.8, 0.8, 0.8, true)
+    else
+        GameTooltip:SetText("No Fishing food")
+        GameTooltip:AddLine("None in your bags that you can eat. Fish dishes that give Fishing skill: Loch Frenzy Delight, Fillet of Frenzy, Bristle Whisker Catfish, Rockscale Cod, Filet of Redgill and Spinefin Halibut.", 0.8, 0.8, 0.8, true)
+    end
+    GameTooltip:Show()
+end)
+foodButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+---------------------------------------------------------------------------
 -- Pole / weapon swap button
 ---------------------------------------------------------------------------
 -- Remembers (per character) the weapons you wear whenever the main hand isn't
@@ -1203,7 +1372,6 @@ end
 local swapHeader = CreateFrame("Frame", nil, UIParent, "SecureHandlerBaseTemplate")
 local swapButton = CreateFrame("Button", "ForeverFishingUtilitiesSwapButton", frame, "SecureActionButtonTemplate")
 swapButton:SetSize(16, 16)
-swapButton:SetPoint("BOTTOMRIGHT", -26, 4)
 swapButton:RegisterForClicks("AnyUp", "AnyDown")
 swapButton:SetAttribute("type", "macro")
 swapButton:SetAttribute("macrotext", "")
@@ -1354,7 +1522,7 @@ end
 
 local lastJumpSwap = 0
 function JumpSwap()
-    if not (db and db.jumpSwap) or InCombatLockdown() or not HasPoleEquipped() then return end
+    if not (db and db.moving == "swap") or InCombatLockdown() or not HasPoleEquipped() then return end
     local moving = (IsPlayerMoving and IsPlayerMoving()) or (GetUnitSpeed("player") or 0) > 0
     if not moving then return end
     if GetTime() - lastJumpSwap < 1 then return end
@@ -1409,12 +1577,17 @@ local function LearnFromCast()
     castSkill, lastFishing = EffectiveSkill(), GetTime()
     if not (db.learn and castSkill) then return end
     local entry, key = Lookup()
+    if not key or key == "" then return end
     local shown = Effective(entry, key)
-    if not shown or castSkill >= shown.min then return end
     local newMin = math.floor(castSkill / 5) * 5
-    if newMin >= shown.min then return end
+    if shown and shown.min and newMin >= shown.min then return end
     Learned(key).min = newMin
-    Say(string.format("you cast in %s with %d skill, so its Minimum is now %d (was %d).", key, castSkill, newMin, shown.min))
+    if entry then
+        Say(string.format("you cast in %s with %d skill, so its Minimum is now %d (was %d).", key, castSkill, newMin, shown.min))
+    else
+        -- No listed numbers: each cast that lands narrows the Minimum down.
+        Say(string.format("no listed numbers for %s; you cast there with %d skill, so its Minimum is %d or less.", key, castSkill, newMin))
+    end
 end
 
 -- A fish got away. If your skill is at or above the listed Recommended,
@@ -1424,12 +1597,19 @@ local function LearnFromGetaway()
     local skill = castSkill or EffectiveSkill()
     if not skill then return end
     local entry, key = Lookup()
+    if not key or key == "" then return end
     local shown = Effective(entry, key)
-    if not shown or skill < shown.full then return end
+    -- Listed water: only a getaway at or above Recommended says it's too low.
+    -- Unlisted water: every getaway tells us Recommended is above your skill.
+    if entry and skill < shown.full then return end
     local newFull = math.floor(skill / 5) * 5 + 5
-    if newFull <= shown.full then return end
+    if shown and shown.full and newFull <= shown.full then return end
     Learned(key).full = newFull
-    Say(string.format("a fish got away in %s at %d skill, so its Recommended is now %d (was %d).", key, skill, newFull, shown.full))
+    if entry then
+        Say(string.format("a fish got away in %s at %d skill, so its Recommended is now %d (was %d).", key, skill, newFull, shown.full))
+    else
+        Say(string.format("no listed numbers for %s; a fish got away at %d skill, so its Recommended is at least %d.", key, skill, newFull))
+    end
 end
 
 local FISH_ESCAPED = ERR_FISH_ESCAPED or "Your fish got away!"
@@ -1497,6 +1677,43 @@ end)
 swapButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
 ---------------------------------------------------------------------------
+-- Button layout
+---------------------------------------------------------------------------
+-- Each button can be hidden in the options. The ones that show close up
+-- from the right: top row Space, sound, swap; bottom row lure, food. Some are
+-- secure buttons, so this only runs out of combat.
+
+local layoutPending = false
+local function LayoutButtons()
+    if InCombatLockdown() then
+        layoutPending = true
+        return
+    end
+    layoutPending = false
+    local function Place(list, point, y)
+        local n = 0
+        for _, item in ipairs(list) do
+            local button, shown = item[1], db[item[2]]
+            button:ClearAllPoints()
+            if shown then
+                button:SetPoint(point, -6 - 20 * n, y)
+                button:Show()
+                n = n + 1
+            else
+                button:Hide()
+            end
+        end
+        return n
+    end
+    topCount = Place({ { spaceButton, "showSpace" }, { soundButton, "showSound" }, { swapButton, "showSwap" } }, "TOPRIGHT", -4)
+    bottomCount = Place({ { lureButton, "showLure" }, { foodButton, "showFood" } }, "BOTTOMRIGHT", 4)
+    line1:SetPoint("TOPRIGHT", -(topCount > 0 and (6 + 20 * topCount) or 8), -7)
+    bookShown = db.showBook and true or false
+    trainIcon:SetShown(bookShown)
+    Refresh()
+end
+
+---------------------------------------------------------------------------
 -- Events
 ---------------------------------------------------------------------------
 
@@ -1516,6 +1733,9 @@ frame:RegisterEvent("BAG_UPDATE_DELAYED")
 frame:RegisterEvent("GLOBAL_MOUSE_DOWN")
 frame:RegisterEvent("GLOBAL_MOUSE_UP")
 frame:RegisterEvent("UI_ERROR_MESSAGE")
+frame:RegisterEvent("PLAYER_LEVEL_UP")
+frame:RegisterEvent("PLAYER_STARTED_MOVING")
+frame:RegisterEvent("PLAYER_STOPPED_MOVING")
 frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "player")
 frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", "player")
 
@@ -1546,6 +1766,9 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
             db.sound = false
             db.optInDefaults = true
         end
+        -- 1.2: the jump-swap on/off became a choice: swap, or just jump.
+        if db.jumpSwap == false then db.moving = "jump" end
+        db.jumpSwap = nil
         db.custom, db.stats, db.showStats, db.statsLineRemoved = nil, nil, nil, nil
         db.swapKey, db.mapInfo, db.doubleClickSpeed = nil, nil, nil
         self:ClearAllPoints()
@@ -1564,6 +1787,9 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
         return
     elseif event == "GLOBAL_MOUSE_UP" then
         if arg1 == "RightButton" then OnRightUp() end
+        return
+    elseif event == "PLAYER_STARTED_MOVING" or event == "PLAYER_STOPPED_MOVING" then
+        if db.moving == "jump" and db.spaceOn and HasPoleEquipped() then UpdateKeys() end
         return
     elseif event == "UI_ERROR_MESSAGE" then
         -- (messageType, message) on current clients; just the message on old ones.
@@ -1591,11 +1817,14 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
         return
     elseif event == "BAG_UPDATE_DELAYED" then
         UpdateLure()
+        UpdateFood()
         UpdateSwap()
         if offhandWanted then FinishOffhand() end
         return
     elseif event == "SKILL_LINES_CHANGED" or event == "CHAT_MSG_SKILL" then
         UpdateLure()
+    elseif event == "PLAYER_LEVEL_UP" then
+        C_Timer.After(0.5, UpdateFood)
     elseif event == "PLAYER_ENTERING_WORLD" then
         RestoreSettings() -- left over from a crash, if any
         HookWorldMap()
@@ -1607,6 +1836,8 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
             UpdateKeys()
             UpdateSpaceButton()
             UpdateLure()
+            UpdateFood()
+            LayoutButtons()
             RecordGear()
             UpdateSwapKeys()
         end)
@@ -1637,6 +1868,8 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
             UpdateSpaceButton()
         end
         if lurePending then UpdateLure() end
+        if foodPending then UpdateFood() end
+        if layoutPending then LayoutButtons() end
         if swapPending then UpdateSwap() end
         if swapKeysPending then UpdateSwapKeys() end
         if offhandWanted then
@@ -1727,6 +1960,24 @@ do
     reset:SetText("Reset position")
     reset:SetScript("OnClick", ResetPosition)
 
+    -- Buttons, in a column on the right.
+    local hButtons = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    hButtons:SetPoint("TOPLEFT", hWindow, "TOPLEFT", 420, 0)
+    hButtons:SetText("Buttons")
+    local prev = hButtons
+    for i, b in ipairs({
+        { "Space fishing toggle", "showSpace", "The fishing icon in the top-right corner that turns Space fishing on and off." },
+        { "Fishing sound toggle", "showSound", "The speaker in the top-right corner that turns fishing sound mode on and off." },
+        { "Pole / weapon swap", "showSwap", "Swaps between your fishing pole and your weapons. The keybind works even when it's hidden." },
+        { "Best lure", "showLure", "Puts the best lure in your bags on your pole." },
+        { "Fishing food", "showFood", "Eats the best food in your bags that gives Fishing skill." },
+        { "Training book", "showBook", "Next to Your Skill: how to learn the next Fishing rank." },
+    }) do
+        local key = b[2]
+        prev = PanelCheck(b[1], b[3], prev, function() return db[key] end,
+            function(v) db[key] = v; LayoutButtons() end, 0, i == 1 and -4 or -2)
+    end
+
     local hCatch = PanelHeader("Catches list", cLock)
     local cDrops = PanelCheck("Show catches when hovering the zone name",
         "Hover the zone name at the top of the window to list what the water here can give, with catch rates.",
@@ -1752,14 +2003,24 @@ do
         function() return db.spaceOn end, function(v) SetSpace(v) end, 0, -4)
     local cDbl = PanelCheck("Double right-click to cast", "Double right-click anywhere to cast while a fishing pole is equipped.", cSpace,
         function() return db.doubleClick end, function(v) db.doubleClick = v end)
-    local cJump = PanelCheck("Jumping on the move swaps back to weapons",
-        "With your fishing pole out, press jump while moving to put your weapons back on. Out of combat only. If Space is your fishing key, that press swaps instead of jumping.", cDbl,
-        function() return db.jumpSwap end, function(v) db.jumpSwap = v end)
+    local moveLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    moveLabel:SetPoint("TOPLEFT", cDbl, "BOTTOMLEFT", 4, -8)
+    moveLabel:SetText("Jump while moving with the pole out:")
+    local function Moving(label, hint, value, anchor, x)
+        local cb = PanelCheck(label, hint, moveLabel,
+            function() return (db.moving or "swap") == value end,
+            function() db.moving = value; UpdateKeys() end)
+        cb:ClearAllPoints()
+        cb:SetPoint("LEFT", anchor, "RIGHT", x, 0)
+        return cb
+    end
+    local mSwap = Moving("Swaps to weapons", "Out of combat, pressing jump while moving puts your weapons back on. If Space is your fishing key, that press swaps instead of jumping.", "swap", moveLabel, 8)
+    Moving("Just jumps", "While you're moving, Space always jumps. Standing still with the pole out, it casts and clicks the bobber as usual.", "jump", mSwap, 130)
     local cCombat = PanelCheck("Swap to weapons when combat starts",
-        "Pulled into a fight with your fishing pole out? Your weapons go on as combat starts, and the pole comes back when it ends (only if the pole was on when the fight began).", cJump,
-        function() return db.combatSwap end, function(v) db.combatSwap = v end)
+        "Pulled into a fight with your fishing pole out? Your weapons go on as combat starts, and the pole comes back when it ends (only if the pole was on when the fight began).", moveLabel,
+        function() return db.combatSwap end, function(v) db.combatSwap = v end, -4, -8)
     local cLearn = PanelCheck("Correct Minimum and Recommended from my fishing",
-        "If you cast below a zone's Minimum, it's lowered to your skill (rounded down to a 5). If a fish gets away at or above Recommended, that's raised. Corrected numbers show a grey *. /ffu learn reset clears them.", cCombat,
+        "The listed numbers come from Classic, and WoW: Forever's own values aren't fully known yet, so your fishing is used as a check. If you cast below a zone's Minimum, it's lowered to your skill (rounded down to a 5). If a fish gets away at or above Recommended, that's raised. In water with no listed numbers, your casts and getaways give a rough idea. Corrected numbers show a grey *. /ffu learn reset clears them.", cCombat,
         function() return db.learn end, function(v) db.learn = v end)
     local cMap = PanelCheck("Fishing info on the world map",
         "Hover a zone on the world map to see its Minimum and Recommended fishing skill. Hold Shift to add its catches.", cLearn,
@@ -1887,9 +2148,14 @@ SlashCmdList.FOREVERFISHINGUTILITIES = function(msg)
             db.learn = not db.learn
             Say("correcting Minimum and Recommended from your fishing " .. OnOff(db.learn) .. ".")
         end
-    elseif cmd == "jumpswap" then
-        db.jumpSwap = not db.jumpSwap
-        Say("jumping on the move swaps back to weapons " .. OnOff(db.jumpSwap) .. ".")
+    elseif cmd == "moving" then
+        if a == "swap" or a == "jump" then
+            db.moving = a
+        else
+            db.moving = (db.moving == "jump") and "swap" or "jump"
+        end
+        UpdateKeys()
+        Say("jumping while moving with the pole out " .. (db.moving == "jump" and "just jumps." or "swaps to your weapons."))
     elseif cmd == "map" then
         db.mapTip = not db.mapTip
         if not db.mapTip then mapTip:Hide() end
@@ -1912,7 +2178,7 @@ SlashCmdList.FOREVERFISHINGUTILITIES = function(msg)
         print("  |cffffd100/ffu reset|r  move the window back to its default spot (centred near the top of the screen)")
         print("  |cffffd100/ffu space|r  Space casts and clicks the bobber (" .. OnOff(db.spaceOn) .. ")")
         print("  |cffffd100/ffu dblclick|r  double right-click to cast (" .. OnOff(db.doubleClick) .. ")")
-        print("  |cffffd100/ffu jumpswap|r  jump while moving to swap back to weapons (" .. OnOff(db.jumpSwap) .. ")")
+        print("  |cffffd100/ffu moving [swap|jump]|r  what jumping while moving with the pole out does (" .. (db.moving or "swap") .. ")")
         print("  |cffffd100/ffu combatswap|r  swap to weapons when combat starts, back to the pole after (" .. OnOff(db.combatSwap) .. ")")
         print("  |cffffd100/ffu learn [reset]|r  correct Minimum/Recommended from your casts and getaways (" .. OnOff(db.learn) .. ")")
         print("  |cffffd100/ffu map|r  fishing info when hovering zones on the world map (" .. OnOff(db.mapTip) .. ")")
