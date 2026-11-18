@@ -31,6 +31,7 @@ A small fishing companion for **World of Warcraft: Forever**. It shows the Fishi
 | `/ffu reset` | Move the window back to its default spot, centred near the top of the screen |
 | `/ffu space` | Turn Space fishing on or off (same as the fishing icon) |
 | `/ffu dblclick` | Turn double right-click casting on or off |
+| `/ffu autolure [smart]` | The cast key puts a lure on first when your pole has none (off by default); `smart` toggles skipping it at or above Recommended |
 | `/ffu combatswap` | Swap to your weapons when combat starts, and back to the pole when it ends (on by default) |
 | `/ffu learn [reset]` | Correct Minimum/Recommended from your own casts and getaways (on by default); `reset` clears the corrections |
 | `/ffu moving [swap\|jump]` | What Space does while moving with the pole out: just jump (default) or swap to your weapons |

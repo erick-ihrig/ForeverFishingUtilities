@@ -40,6 +40,8 @@ local DEFAULTS = {
     showLure = true,
     showFood = true,
     showBook = true,
+    autoLure = false,     -- the cast key puts a lure on first when the pole has none
+    autoLureSmart = true, -- ...but not when you're already at Recommended (unless you have Luremaster)
     combatSwap = true,    -- entering combat with the pole out swaps to weapons, and back after
     learn = true,         -- adjust Minimum/Recommended from your own casts and getaways
 }
@@ -1236,6 +1238,7 @@ local function UpdateLure()
         lureIcon:SetAlpha(0.5)
         lureCount:SetText("")
     end
+    if lureButton.autoMark then lureButton.autoMark:SetShown(db.autoLure and true or false) end
     if InCombatLockdown() then
         lurePending = true
         return
@@ -1249,6 +1252,8 @@ local function UpdateLure()
         lureButton:SetAttribute("macrotext", nil)
     end
 end
+
+local UpdateCastAction, HasLuremaster -- defined with auto lure, below
 
 lureButton:SetScript("OnEnter", function(self)
     WindowTip()
@@ -1265,9 +1270,89 @@ lureButton:SetScript("OnEnter", function(self)
         GameTooltip:AddLine(" ")
         GameTooltip:AddLine("Lure on pole: " .. math.ceil(msLeft / 60000) .. " min left", 0.3, 1, 0.3)
     end
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine("Auto lure: " .. (db.autoLure and "|cff40ff40on|r" or "|cffff4040off|r") ..
+        (db.autoLure and HasLuremaster and HasLuremaster() and "  (Luremaster)" or ""), 1, 1, 1)
+    GameTooltip:AddLine("Right-click to turn auto lure on or off.", 0.5, 0.5, 0.5, true)
     GameTooltip:Show()
 end)
 lureButton:SetScript("OnLeave", HideWindowTip)
+
+---------------------------------------------------------------------------
+-- Auto lure
+---------------------------------------------------------------------------
+-- With auto lure on, the cast key (Space, the keybind or a double
+-- right-click) puts the best lure on your pole first when it has none: the
+-- cast button's click is switched to the lure macro until the lure is on.
+-- Secure attributes only change out of combat, which is also the only time
+-- the fishing keys are active. Right-click the lure button to toggle it.
+
+do
+    -- The Luremaster Legacy perk: an extra fish 25/50% of the time with a
+    -- lure on, so a lure is worth it even above Recommended.
+    function HasLuremaster()
+        local name = "Luremaster"
+        if C_Spell and C_Spell.GetSpellInfo then
+            local ok, info = pcall(C_Spell.GetSpellInfo, name)
+            if ok and info then return true end
+        end
+        if GetSpellInfo then
+            local ok, found = pcall(GetSpellInfo, name)
+            if ok and found then return true end
+        end
+        return false
+    end
+
+    -- Why a lure is (or isn't) worth putting on now.
+    local function LureWanted()
+        if not (db.autoLure and HasPoleEquipped() and currentLure) then return false end
+        if GetWeaponEnchantInfo() then return false end -- already has one
+        if not db.autoLureSmart or HasLuremaster() then return true end
+        local rank, bonus = GetFishingSkill()
+        local entry, key = Lookup()
+        local shown = Effective(entry, key)
+        if not (rank and shown and shown.full) then return true end -- unknown water: lure up
+        return rank + (bonus or 0) < shown.full
+    end
+
+    local castIsLure
+    function UpdateCastAction()
+        if InCombatLockdown() then return end
+        local want = LureWanted() and true or false
+        if want == castIsLure and (not want or castButton:GetAttribute("macrotext") == lureButton:GetAttribute("macrotext")) then return end
+        castIsLure = want
+        if want then
+            castButton:SetAttribute("type", "macro")
+            castButton:SetAttribute("macrotext", "/use item:" .. currentLure.id .. "\n/use 16")
+        else
+            castButton:SetAttribute("type", "spell")
+            castButton:SetAttribute("spell", FishingName())
+            castButton:SetAttribute("macrotext", nil)
+        end
+    end
+
+    -- The auto-cast corners, like a pet's autocast ability.
+    local autoMark = lureButton:CreateTexture(nil, "OVERLAY", nil, 2)
+    autoMark:SetTexture("Interface\\Buttons\\UI-AutoCastableOverlay")
+    autoMark:SetPoint("TOPLEFT", -10, 10)
+    autoMark:SetPoint("BOTTOMRIGHT", 10, -10)
+    lureButton.autoMark = autoMark
+
+    -- Right-click: toggle auto lure. The right button's own action is an
+    -- empty macro so it doesn't also put the lure on.
+    lureButton:SetAttribute("type2", "macro")
+    lureButton:SetAttribute("macrotext2", "")
+    local lastToggle = 0
+    lureButton:HookScript("OnClick", function(_, button)
+        if button ~= "RightButton" or GetTime() - lastToggle < 0.3 then return end
+        lastToggle = GetTime()
+        db.autoLure = not db.autoLure
+        autoMark:SetShown(db.autoLure)
+        UpdateCastAction()
+        print("|cff40c0ffForever Fishing Utilities:|r auto lure " .. (db.autoLure and "|cff40ff40on|r" or "|cffff4040off|r") .. ".")
+        if GameTooltip:IsOwned(frame) then lureButton:GetScript("OnEnter")(lureButton) end
+    end)
+end
 
 ---------------------------------------------------------------------------
 -- Food button
@@ -1882,6 +1967,7 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
         C_Timer.NewTicker(1, function()
             Refresh()
             UpdateGlows()
+            UpdateCastAction()
         end)
         RegisterOptions()
         self:UnregisterEvent("ADDON_LOADED")
@@ -1925,6 +2011,7 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
     elseif event == "BAG_UPDATE_DELAYED" then
         UpdateLure()
         UpdateFood()
+        UpdateCastAction()
         UpdateSwap()
         if offhandWanted then FinishOffhand() end
         return
@@ -1932,6 +2019,7 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
         UpdateLure()
     elseif event == "UNIT_AURA" or event == "UNIT_INVENTORY_CHANGED" then
         UpdateGlows()
+        if event == "UNIT_INVENTORY_CHANGED" then UpdateCastAction() end
         return
     elseif event == "PLAYER_LEVEL_UP" then
         C_Timer.After(0.5, UpdateFood)
@@ -2132,22 +2220,29 @@ do
     local cLearn = PanelCheck("Correct Minimum and Recommended from my fishing",
         "The listed numbers come from Classic, and WoW: Forever's own values aren't fully known yet, so your fishing is used as a check. If you cast below a zone's Minimum, it's lowered to your skill (rounded down to a 5). If a fish gets away at or above Recommended, that's raised. In water with no listed numbers, your casts and getaways give a rough idea. Corrected numbers show a grey *. /ffu learn reset clears them.", cCombat,
         function() return db.learn end, function(v) db.learn = v end)
+    local cAuto = PanelCheck("Auto lure: the cast key puts a lure on first",
+        "When your pole has no lure, pressing the cast key (or double right-clicking) puts the best lure from your bags on instead of casting. Press again to fish. Right-click the lure button to turn this on or off.", cLearn,
+        function() return db.autoLure end, function(v) db.autoLure = v; UpdateLure(); UpdateCastAction() end)
+    local cAutoSmart = PanelCheck("Only below Recommended (always with Luremaster)",
+        "Skip the lure when your skill already reaches the water's Recommended, since it can't help you there. If you have the Luremaster Legacy perk, a lure is always put on, for its extra fish.", cAuto,
+        function() return db.autoLureSmart end, function(v) db.autoLureSmart = v; UpdateCastAction() end, 24)
     local cMap = PanelCheck("Fishing info on the world map",
-        "Hover a zone on the world map to see its Minimum and Recommended fishing skill. Hold Shift to add its catches.", cLearn,
+        "Hover a zone on the world map to see its Minimum and Recommended fishing skill. Hold Shift to add its catches.", cAutoSmart,
         function() return db.mapTip end,
         function(v) db.mapTip = v; if not v then mapTip:Hide() end end)
 
-    local hSound = PanelHeader("Sound", cMap)
-    local cSound = PanelCheck("Quiet everything but the splash while fishing",
+    -- Sound goes in the right column, under Buttons.
+    local hSound = PanelHeader("Sound", prev, -16)
+    local cSound = PanelCheck("Quiet sounds while fishing",
         "While fishing, music, ambience, dialog and pet sounds are turned off and effects are loud. Your own settings come back afterwards.",
         hSound, function() return db.sound end, function(v) SetSound(v) end, 0, -4)
 
     local volLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    volLabel:SetPoint("TOPLEFT", cSound, "BOTTOMLEFT", 30, -8)
+    volLabel:SetPoint("TOPLEFT", cSound, "BOTTOMLEFT", 4, -8)
     local slider = CreateFrame("Slider", nil, panel)
     slider:SetOrientation("HORIZONTAL")
-    slider:SetSize(180, 16)
-    slider:SetPoint("LEFT", volLabel, "LEFT", 190, 0)
+    slider:SetSize(170, 16)
+    slider:SetPoint("TOPLEFT", volLabel, "BOTTOMLEFT", 0, -8)
     slider:SetMinMaxValues(0, 100)
     slider:SetValueStep(5)
     if slider.SetObeyStepOnDrag then slider:SetObeyStepOnDrag(true) end
@@ -2161,7 +2256,7 @@ do
     thumb:SetSize(24, 24)
     slider:SetThumbTexture(thumb)
     local function VolumeText()
-        volLabel:SetText("Master volume while fishing: " .. math.floor(db.volume * 100 + 0.5) .. "%")
+        volLabel:SetText("Volume while fishing: " .. math.floor(db.volume * 100 + 0.5) .. "%")
     end
     slider:SetScript("OnValueChanged", function(self, value)
         if self.syncing then return end
@@ -2178,7 +2273,7 @@ do
     panelWidgets[#panelWidgets + 1] = slider
 
     local keys = panel:CreateFontString(nil, "ARTWORK", "GameFontDisable")
-    keys:SetPoint("TOPLEFT", volLabel, "BOTTOMLEFT", -30, -22)
+    keys:SetPoint("TOPLEFT", cMap, "BOTTOMLEFT", 0, -18)
     keys:SetText("Keybinds: Options > Keybindings > AddOns > Forever Fishing Utilities")
 end
 
@@ -2247,6 +2342,16 @@ SlashCmdList.FOREVERFISHINGUTILITIES = function(msg)
     elseif cmd == "dblclick" then
         db.doubleClick = not db.doubleClick
         Say("double right-click to cast " .. OnOff(db.doubleClick) .. ".")
+    elseif cmd == "autolure" then
+        if a == "smart" then
+            db.autoLureSmart = not db.autoLureSmart
+            Say("auto lure only below Recommended " .. OnOff(db.autoLureSmart) .. ".")
+        else
+            db.autoLure = not db.autoLure
+            Say("auto lure " .. OnOff(db.autoLure) .. ".")
+        end
+        UpdateLure()
+        UpdateCastAction()
     elseif cmd == "combatswap" then
         db.combatSwap = not db.combatSwap
         Say("swapping to weapons when combat starts " .. OnOff(db.combatSwap) .. ".")
@@ -2289,6 +2394,7 @@ SlashCmdList.FOREVERFISHINGUTILITIES = function(msg)
         print("  |cffffd100/ffu space|r  Space casts and clicks the bobber (" .. OnOff(db.spaceOn) .. ")")
         print("  |cffffd100/ffu dblclick|r  double right-click to cast (" .. OnOff(db.doubleClick) .. ")")
         print("  |cffffd100/ffu moving [swap|jump]|r  what jumping while moving with the pole out does (" .. (db.moving or "jump") .. ")")
+        print("  |cffffd100/ffu autolure [smart]|r  cast key puts a lure on first (" .. OnOff(db.autoLure) .. "; only below Recommended " .. OnOff(db.autoLureSmart) .. ")")
         print("  |cffffd100/ffu combatswap|r  swap to weapons when combat starts, back to the pole after (" .. OnOff(db.combatSwap) .. ")")
         print("  |cffffd100/ffu learn [reset]|r  correct Minimum/Recommended from your casts and getaways (" .. OnOff(db.learn) .. ")")
         print("  |cffffd100/ffu map|r  fishing info when hovering zones on the world map (" .. OnOff(db.mapTip) .. ")")
