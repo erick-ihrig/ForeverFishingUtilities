@@ -3,6 +3,7 @@
 ## Unreleased
 - New: auto lure. When your pole has no lure, the cast key puts the best lure from your bags on first; press again to fish. Right-click the lure button (or `/ffu autolure`) to turn it on or off; the button shows the autocast corners while it's on. By default it skips the lure when your skill already reaches the water's Recommended, unless you have the Luremaster Legacy perk (`/ffu autolure smart` or the options to change that). Off by default.
 - The sound settings moved to the right-hand column of the options panel.
+- New: the catches list and world map now cover Riverglades and Zephras Isle, from catches players recorded on WoW Forever (EG Link data by Efficient Games, CC BY 4.0).
 
 ## 1.2.1
 - Fixed: Lua errors ("Auras cannot be accessed when secret") in combat. WoW: Forever hides buffs from addons during a fight, so the food button's glow now keeps its last state until the fight ends.

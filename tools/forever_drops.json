@@ -1,0 +1,22 @@
+{
+  "_about": [
+    "Catches seen on WoW Forever for zones the Classic database doesn't have.",
+    "Source: EG Link output (https://github.com/JIVESCORP/eg-link-output-wowf), data/wowf/<build>/loot.json,",
+    "keys fishing:<uiMap> (solo and |group), summed over every live build. Counts, not percentages:",
+    "update_drops.py turns them into percent of catches. May include pool catches.",
+    "Data from Efficient Games (https://efficient.games), licensed under CC BY 4.0.",
+    "Last counted 2026-11-24 (builds up to 1.60.1.71037)."
+  ],
+  "zones": {
+    "Riverglades": {
+      "uiMap": 2548,
+      "catches": 68,
+      "items": { "6362": 35, "4603": 11, "6358": 11, "6359": 11 }
+    },
+    "Zephras Isle": {
+      "uiMap": 2521,
+      "catches": 24,
+      "items": { "6291": 14, "6289": 9, "6292": 1 }
+    }
+  }
+}
