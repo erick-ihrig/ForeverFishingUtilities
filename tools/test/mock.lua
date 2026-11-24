@@ -127,7 +127,7 @@ C_Item = {
   GetItemNameByID = function(id) return "item" .. id end,
 }
 C_UnitAuras = { GetBuffDataByIndex = function(_, i) if TIPS.buff[i] then return { name = TIPS.buff[i][1] } end end }
-C_Spell = { GetSpellInfo = function(s) if s == "Fishing" or s == 7620 or s == 131474 then return { name = "Fishing" } end end }
+C_Spell = { GetSpellName = function(id) if id == 7620 then return "Fishing" end end, GetSpellInfo = function(s) if s == "Fishing" or s == 7620 or s == 131474 then return { name = "Fishing" } end end }
 C_Container = {
   GetContainerNumSlots = function() return 0 end,
   GetContainerItemInfo = function() return nil end,

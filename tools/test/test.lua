@@ -73,4 +73,47 @@ STATE.inv[1], TIPS.inv[1], TIPS.buff[1], STATE.modifier = nil, nil, nil, 0
 TIPS.inv[16] = { "Big Iron Fishing Pole", "Requires Fishing (100)", "Equip: Increased Fishing +20." }
 check("Requires line ignored", skillText():match("%(%+%d+ = %d+%)"), "(+20 = 220)")
 
+-- Learning: Minimum and Recommended stay 95 apart on listed water.
+TIPS.inv[16], STATE.modifier, STATE.inv[1] = nil, 0, nil
+NOW = NOW + 2
+local function thresholds()
+  tick()
+  for _, f in ipairs(frames) do
+    if f.kind == "FontString" and type(f.text) == "string" and f.text:find("Minimum") then
+      local plain = f.text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+      return plain:match("Minimum: (%d+)%*?%s+Recommended: (%d+)")
+    end
+  end
+end
+local function cast() fire("UNIT_SPELLCAST_CHANNEL_START", "player", "x", 7620); fire("UNIT_SPELLCAST_CHANNEL_STOP", "player", "x", 7620) end
+local function getaway() fire("UI_ERROR_MESSAGE", 0, "Your fish got away!") end
+STATE.zone, STATE.rank = "Stranglethorn Vale", 112 -- listed 130 / 225
+cast()
+local mn, fl = thresholds()
+check("cast at 112 lowers Minimum to 110", mn, "110")
+check("... and Recommended follows to 205", fl, "205")
+STATE.rank = 210
+cast(); getaway()
+mn, fl = thresholds()
+check("getaway at 210 raises Recommended to 215", fl, "215")
+check("... and Minimum follows to 120", mn, "120")
+-- A save from before: only a learned min.
+ForeverFishingUtilitiesDB.learned["Stranglethorn Vale"] = { min = 100 }
+mn, fl = thresholds()
+check("old save min 100 -> Recommended 195", fl, "195")
+check("old save min 100 -> Minimum 100", mn, "100")
+-- Starter water: Minimum stays at 1 while Recommended rises.
+STATE.zone, STATE.rank = "Durotar", 40 -- listed 1 / 25
+cast(); getaway()
+mn, fl = thresholds()
+check("starter getaway at 40 -> Recommended 45", fl, "45")
+check("starter Minimum stays 1", mn, "1")
+-- Unlisted water keeps its two separate bounds.
+STATE.zone, STATE.rank = "Nowhere Land", 90
+cast()
+STATE.rank = 120
+cast(); getaway()
+check("unlisted: cast bound kept", ForeverFishingUtilitiesDB.learned["Nowhere Land"].min, 90)
+check("unlisted: getaway bound kept", ForeverFishingUtilitiesDB.learned["Nowhere Land"].full, 125)
+
 log(fails == 0 and "ALL PASSED" or (fails .. " FAILED"))

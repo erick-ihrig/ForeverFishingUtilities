@@ -13,6 +13,10 @@ local T3      = { min = 130, full = 225 }
 local T4      = { min = 205, full = 300 }
 local T5      = { min = 330, full = 425 }
 
+-- Every water's Minimum is its Recommended minus this, but never below 1
+-- (so the starter and tier 1 gaps look smaller).
+ns.GAP = 95
+
 ns.ZONES = {
     -- Starter zones
     ["Dun Morogh"] = STARTER, ["Durotar"] = STARTER, ["Elwynn Forest"] = STARTER,

@@ -197,16 +197,12 @@ local function Effective(entry, key)
         return { min = learned.min, full = learned.full, guessed = true,
             learnedMin = learned.min ~= nil, learnedFull = learned.full ~= nil }
     end
-    local gap = entry.full - entry.min
-    local min, full = entry.min, entry.full
-    if learned.min and learned.full then
-        min, full = learned.min, math.max(learned.full, learned.min)
-    elseif learned.min then
-        min, full = learned.min, learned.min + gap
-    elseif learned.full then
-        min, full = math.max(1, learned.full - gap), learned.full
-    end
-    return { min = min, full = full, learnedMin = learned.min ~= nil, learnedFull = learned.full ~= nil }
+    -- Listed water: one number is learned (Recommended) and the Minimum always
+    -- sits ns.GAP below it, never under 1. Saves from before 1.3 may hold a
+    -- learned min alone; it stands for min + GAP.
+    local full = learned.full or (learned.min and learned.min + ns.GAP)
+    if not full then return entry end
+    return { min = math.max(1, full - ns.GAP), full = full, learnedMin = true, learnedFull = true }
 end
 
 local fishingActive = false
@@ -1774,8 +1770,9 @@ local function Learned(key)
     return db.learned[key]
 end
 
--- A cast landed. If your skill is under the listed Minimum, that Minimum
+-- A cast landed. If your skill is under the shown Minimum, that Minimum
 -- is too high for this water: lower it to your skill, rounded down to a 5.
+-- On listed water Recommended moves with it (they stay ns.GAP apart).
 local function LearnFromCast()
     castSkill, lastFishing = EffectiveSkill(), GetTime()
     if not (db.learn and castSkill) then return end
@@ -1784,10 +1781,13 @@ local function LearnFromCast()
     local shown = Effective(entry, key)
     local newMin = math.floor(castSkill / 5) * 5
     if shown and shown.min and newMin >= shown.min then return end
-    Learned(key).min = newMin
     if entry then
-        Say(string.format("you cast in %s with %d skill, so its Minimum is now %d (was %d).", key, castSkill, newMin, shown.min))
+        local learned = Learned(key)
+        learned.full, learned.min = newMin + ns.GAP, nil
+        Say(string.format("you cast in %s with %d skill, so its Minimum is now %d (was %d) and Recommended %d (was %d).",
+            key, castSkill, newMin, shown.min, newMin + ns.GAP, shown.full))
     else
+        Learned(key).min = newMin
         -- No listed numbers: each cast that lands narrows the Minimum down.
         Say(string.format("no listed numbers for %s; you cast there with %d skill, so its Minimum is %d or less.", key, castSkill, newMin))
     end
@@ -1807,9 +1807,14 @@ local function LearnFromGetaway()
     if entry and skill < shown.full then return end
     local newFull = math.floor(skill / 5) * 5 + 5
     if shown and shown.full and newFull <= shown.full then return end
-    Learned(key).full = newFull
+    local learned = Learned(key)
+    learned.full = newFull
     if entry then
-        Say(string.format("a fish got away in %s at %d skill, so its Recommended is now %d (was %d).", key, skill, newFull, shown.full))
+        learned.min = nil -- listed water: the Minimum follows Recommended
+        local newMin = math.max(1, newFull - ns.GAP)
+        Say(string.format("a fish got away in %s at %d skill, so its Recommended is now %d (was %d)%s.",
+            key, skill, newFull, shown.full,
+            newMin ~= shown.min and string.format(" and Minimum %d (was %d)", newMin, shown.min) or ""))
     else
         Say(string.format("no listed numbers for %s; a fish got away at %d skill, so its Recommended is at least %d.", key, skill, newFull))
     end

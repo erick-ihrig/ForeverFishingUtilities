@@ -59,7 +59,7 @@ Some technical details, for the curious:
 - Zone lookups use English zone names, so the addon currently works on **English (enUS) clients** only.
 - Catch lists and rates are bundled in `Drops.lua`, generated from the open-source cMaNGOS Classic database (github.com/cmangos/classic-db) by `tools/update_drops.py`, which also checks that source for changes. They cover open water only, not fishing pools, and they're Classic-era values that may differ on Forever.
 - Two zones new to Forever, Riverglades and Zephras Isle, get their catches from what players recorded there, counted from [EG Link output](https://github.com/JIVESCORP/eg-link-output-wowf) (kept in `tools/forever_drops.json`). Data from [Efficient Games](https://efficient.games), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). These come from fewer catches (68 and 24) and may include fishing pools.
-- Minimum and Recommended correct themselves from your own fishing: a successful cast below the Minimum lowers it, and a getaway at or above Recommended raises that (marked with a grey *).
+- Minimum and Recommended correct themselves from your own fishing: a successful cast below the Minimum lowers it, and a getaway at or above Recommended raises that (marked with a grey *). The two always stay 95 apart (the Minimum never goes below 1), so correcting one moves the other. Water with no listed numbers keeps the two as separate limits ("90 or less", "125+").
 - Trainer locations, costs and requirements are in `Training.lua`, from WoW Forever trainer guides. The 10% discount at Honored follows the Classic rule.
 - The lure list uses the Classic lures. Lures added in Forever aren't included yet.
 
