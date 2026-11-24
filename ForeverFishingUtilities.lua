@@ -66,26 +66,104 @@ local function FishingName()
     return "Fishing"
 end
 
--- Returns base rank, bonus (pole, lure, gear) and current cap, or nil if Fishing isn't learned.
+-- The Fishing bonus read from tooltips: equipped items (the pole, its lure,
+-- hats, gloves and so on) and a Well Fed buff. On Forever the skill APIs
+-- below leave at least the pole's bonus out (seen with the Blump Family
+-- Fishing Pole), so GetFishingSkill takes whichever total is bigger.
+local TooltipFishingBonus
+do
+    local tip, gear, food, scannedAt = nil, 0, 0, nil
+    local function LineBonus(text, word)
+        if type(text) ~= "string" or not text:find(word, 1, true) or text:find("^Requires") then return 0 end
+        local n = text:match("%+(%d+)") or (text:find("^Equip:") and text:match("(%d+)"))
+        return tonumber(n) or 0
+    end
+    local function ScanLines(word, first)
+        local sum = 0
+        for line = 2, tip:NumLines() or 0 do
+            local fs = _G["ForeverFishingUtilitiesGearTipTextLeft" .. line]
+            local n = LineBonus(fs and fs:GetText(), word)
+            if n > 0 then
+                if first then return n end
+                sum = sum + n
+            end
+        end
+        return sum
+    end
+    local function Scan()
+        tip = tip or CreateFrame("GameTooltip", "ForeverFishingUtilitiesGearTip", nil, "GameTooltipTemplate")
+        local word = FishingName()
+        local total = 0
+        for slot = 1, 19 do
+            if GetInventoryItemID("player", slot) then
+                tip:SetOwner(WorldFrame, "ANCHOR_NONE")
+                tip:ClearLines()
+                tip:SetInventoryItem("player", slot)
+                total = total + ScanLines(word)
+            end
+        end
+        gear = total
+        -- Buffs are secret in combat on Forever; keep the last value then.
+        local secret = InCombatLockdown() or (C_Secrets and C_Secrets.ShouldAurasBeSecret and C_Secrets.ShouldAurasBeSecret())
+        if not secret then
+            local buff = 0
+            for i = 1, 40 do
+                local name
+                if C_UnitAuras and C_UnitAuras.GetBuffDataByIndex then
+                    local aura = C_UnitAuras.GetBuffDataByIndex("player", i)
+                    name = aura and aura.name
+                elseif UnitBuff then
+                    name = UnitBuff("player", i)
+                end
+                if not name then break end
+                tip:SetOwner(WorldFrame, "ANCHOR_NONE")
+                tip:ClearLines()
+                tip:SetUnitBuff("player", i)
+                for line = 2, tip:NumLines() or 0 do
+                    local fs = _G["ForeverFishingUtilitiesGearTipTextLeft" .. line]
+                    local text = fs and fs:GetText()
+                    if type(text) == "string" and text:find(word, 1, true) then
+                        buff = buff + (tonumber(text:match("(%d+)")) or 0)
+                        break
+                    end
+                end
+            end
+            food = buff
+        end
+    end
+    function TooltipFishingBonus()
+        if not scannedAt or GetTime() - scannedAt >= 1 then
+            scannedAt = GetTime()
+            pcall(Scan)
+        end
+        return gear + food
+    end
+end
+
+-- Returns base rank, bonus (pole, lure, gear, food) and current cap, or nil if Fishing isn't learned.
 local function GetFishingSkill()
+    local rank, bonus, maxRank
     if GetProfessions and GetProfessionInfo then
         local _, _, _, fishing = GetProfessions()
         if fishing then
-            local _, _, rank, maxRank, _, _, skillLine, modifier = GetProfessionInfo(fishing)
-            if rank and (skillLine == nil or skillLine == FISHING_SKILLLINE) then
-                return rank, modifier or 0, maxRank
+            local _, _, r, m, _, _, skillLine, modifier = GetProfessionInfo(fishing)
+            if r and (skillLine == nil or skillLine == FISHING_SKILLLINE) then
+                rank, bonus, maxRank = r, modifier or 0, m
             end
         end
     end
-    if GetNumSkillLines and GetSkillLineInfo then
+    if not rank and GetNumSkillLines and GetSkillLineInfo then
         local name = FishingName()
         for i = 1, GetNumSkillLines() do
-            local skillName, isHeader, _, rank, temp, modifier, maxRank = GetSkillLineInfo(i)
+            local skillName, isHeader, _, r, temp, modifier, m = GetSkillLineInfo(i)
             if not isHeader and skillName == name then
-                return rank, (modifier or 0) + (temp or 0), maxRank
+                rank, bonus, maxRank = r, (modifier or 0) + (temp or 0), m
+                break
             end
         end
     end
+    if not rank then return nil end
+    return rank, math.max(bonus, TooltipFishingBonus()), maxRank
 end
 
 local function HasPoleEquipped()
@@ -1171,8 +1249,11 @@ end
 ---------------------------------------------------------------------------
 -- Lure button
 ---------------------------------------------------------------------------
--- Picks the lure with the biggest bonus that your base skill can use and that
--- you have in your bags. Clicking runs "/use <lure>" then "/use 16" (main
+-- Picks the weakest lure in your bags (that your base skill can use) whose
+-- bonus lifts your skill to the water's Recommended, so the strong lures are
+-- saved for water that needs them. If none is enough, or the water's numbers
+-- aren't known, it picks the strongest. Equal bonuses: the first in the list
+-- (the cheaper vendor lure). Clicking runs "/use <lure>" then "/use 16" (main
 -- hand), the same as doing it by hand. Its target can only change out of combat.
 
 local LURES = { -- best first
@@ -1199,12 +1280,24 @@ local function ItemName(id)
     return GetItemInfo and (GetItemInfo(id))
 end
 
-local function BestLure()
-    local rank = GetFishingSkill()
+-- prev: the lure picked last time. While a lure is on the pole the skill
+-- bonus already includes it, so the pick stays as it was.
+local function BestLure(prev)
+    local rank, bonus = GetFishingSkill()
     if not rank then return nil end
+    local strongest, pick
+    local entry, key = Lookup()
+    local shown = Effective(entry, key)
+    local need = shown and shown.full and (shown.full - rank - (bonus or 0))
+    local lureOn = HasPoleEquipped() and GetWeaponEnchantInfo()
     for _, lure in ipairs(LURES) do
-        if rank >= lure.req and ItemCount(lure.id) > 0 then return lure end
+        if rank >= lure.req and ItemCount(lure.id) > 0 then
+            if lureOn and prev and lure.id == prev.id then return prev end
+            strongest = strongest or lure
+            if need and lure.bonus >= need and (not pick or lure.bonus < pick.bonus) then pick = lure end
+        end
     end
+    return pick or strongest
 end
 
 local lureButton = CreateFrame("Button", "ForeverFishingUtilitiesLureButton", frame, "SecureActionButtonTemplate")
@@ -1223,7 +1316,7 @@ local lurePending = false
 
 local function UpdateLure()
     if not db then return end
-    local lure = BestLure()
+    local lure = BestLure(currentLure)
     currentLure = lure
     -- Icon and count can always change; the click target only out of combat.
     if lure then
@@ -1967,6 +2060,8 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3)
         C_Timer.NewTicker(1, function()
             Refresh()
             UpdateGlows()
+            -- The right lure depends on the water and your bonus, too.
+            if BestLure(currentLure) ~= currentLure then UpdateLure() end
             UpdateCastAction()
         end)
         RegisterOptions()

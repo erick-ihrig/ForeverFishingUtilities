@@ -1,7 +1,9 @@
 # Changelog
 
 ## Unreleased
-- New: auto lure. When your pole has no lure, the cast key puts the best lure from your bags on first; press again to fish. Right-click the lure button (or `/ffu autolure`) to turn it on or off; the button shows the autocast corners while it's on. By default it skips the lure when your skill already reaches the water's Recommended, unless you have the Luremaster Legacy perk (`/ffu autolure smart` or the options to change that). Off by default.
+- New: auto lure. When your pole has no lure, the cast key puts a lure from your bags on first; press again to fish. Right-click the lure button (or `/ffu autolure`) to turn it on or off; the button shows the autocast corners while it's on. By default it skips the lure when your skill already reaches the water's Recommended, unless you have the Luremaster Legacy perk (`/ffu autolure smart` or the options to change that). Off by default.
+- Changed: the lure button (and auto lure) now picks the weakest lure in your bags that still gets your skill to the water's Recommended, so a +50 lure is used when +50 is enough and the +75 ones are saved. If none is enough, or the water is unknown, it still picks the strongest.
+- Fixed: Your Skill's bonus now includes your fishing pole's bonus (and other Fishing gear and food), which WoW: Forever's skill info leaves out.
 - The sound settings moved to the right-hand column of the options panel.
 - New: the catches list and world map now cover Riverglades and Zephras Isle, from catches players recorded on WoW Forever (EG Link data by Efficient Games, CC BY 4.0).
 

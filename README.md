@@ -9,7 +9,7 @@ A small fishing companion for **World of Warcraft: Forever**. It shows the Fishi
 - **One-key fishing.** With a fishing pole equipped, Space casts, then clicks the bobber. Without a pole, or in combat, Space jumps as normal. This can be toggled, and a dedicated keybind is also available.
 - **Double right-click to cast** (optional, off by default).
 - **Fishing sound mode** (optional, off by default). While fishing, music, ambience, dialog and pet sounds are muted and effects turned up so the splash stands out. Your settings come back afterwards.
-- **Best-lure button.** Applies the strongest lure in your bags that your skill can use.
+- **Best-lure button.** Applies the weakest lure in your bags that still lifts your skill to the water's Recommended, saving the strong ones for water that needs them. If none is enough, or the water's numbers aren't known, it uses the strongest your skill can use.
 - **Fishing food button.** Eats the best food in your bags that gives Fishing skill.
 - **Pole / weapon swap.** One click or key swaps between your fishing pole and the weapons you had on, and it works in combat. Pulled into a fight with the pole out? Your weapons go on automatically, and the pole comes back afterwards.
 - **Training help.** A book next to Your Skill shows how to learn the next Fishing rank: the closest trainer and the cost, the Expert book, or the Artisan quest. Ctrl-click it for a map pin.
